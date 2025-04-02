@@ -1,0 +1,302 @@
+// jQuery-based code to implement posting feedback within articles.
+// Rewritten for L12 template - based on Bootstrap v3.3.4
+(function($){
+  'use strict';
+  $(function() {
+    // Create an "inView" filter, courtesy of 
+    // http://stackoverflow.com/questions/472930/in-jquery-is-there-way-for-slidedown-method-to-scroll-the-page-down-too/472954
+    $.extend($.expr[':'],{
+      inView: function(a) {
+        var st = (document.documentElement.scrollTop || document.body.scrollTop),
+            ot = $(a).offset().top,
+            wh = (window.innerHeight && window.innerHeight < $(window).height()) ? window.innerHeight : $(window).height();
+        return ot > st && ($(a).height() + ot) < (st + wh);
+      }
+    });
+
+    // Create the HTML for the feedback form and append it to the end of the feedbackBox div
+    $('#feedbackBox > div').append(
+'<div id="fbForm" style="overflow:auto; display:none;">' +
+  '<form action="">' +
+    '<p>Fill in the fields below and click Save to add a comment. (<em>* - required fields</em>)</p>' +
+    '<div class="form-group">' +
+      '<label for="fbName">* Name</label>' +
+      '<input type="text" name="fbName" id="fbName" value="" class="form-control" placeholder="Enter your name">' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label for="fbEmail">* Email</label>' +
+      '<input type="text" name="fbEmail" id="fbEmail" value="" class="form-control" placeholder="Enter your email address">' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label for="fbOccupation">Occupation:</label>' +
+      '<input type="text" name="fbOccupation" id="fbOccupation" value="" class="form-control" placeholder="Enter your occupation">' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label for="fbLocation">Location:</label>' +
+      '<input type="text" name="fbLocation" id="fbLocation" value="" class="form-control" placeholder="Enter your location">' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label>Display your email address?</label>' +
+      '<div class="radio">' +
+        '<label>' +
+          '<input type="radio" name="fbDisplayEmail" value="y" id="fbYes"> Yes' +
+        '</label>' +
+        '<label>' +
+          '<input type="radio" name="fbDisplayEmail" value="n" id="fbNo" checked="checked"> No' +
+        '</label>' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label for="fbComment">* Feedback:</label>' +
+      '<textarea name="fbComment" id="fbComment" rows="10" class="form-control" placeholder="Enter your feedback"></textarea>' +
+    '</div>' +
+    '<p class="formButtons">' +
+      '<input type="button" id="saveFeedback" value="Save" disabled="disabled" class="btn btn-primary"> ' +
+      '<input type="button" id="cancelFeedback" value="Cancel" class="btn btn-primary">' +
+    '</p>' +
+  '</form>' +
+'</div>'
+    );
+
+    // Cache some elements
+    var fbForm = $('#fbForm');
+    var fbName = $('#fbName');
+    var fbEmail = $('#fbEmail');
+    var fbComment = $('#fbComment');
+    var saveFeedback = $('#saveFeedback');
+
+    // Create the HTML for the "Add New Comment" links and slide them down from above and below table
+    if ($('#feedbackBox tbody tr').length > 15) {
+      $('<p id="anc2" class="hidden-print" style="display:none;"><a href="#">Add New Comment</a></p>').insertBefore('#feedbackBox table').slideDown();
+    }
+    $('<p id="anc" class="hidden-print" style="display:none;"><a href="#">Add New Comment</a></p>').insertAfter('#feedbackBox table').slideDown();
+
+    // Create the HTML for the "Posted by" name "hover effect" in the feedback table
+    $('body').append(
+'<div id="namePreview">' +
+  '<p><strong>Email:</strong><span id="npEmail" /></p>' +
+  '<p><strong>Occupation:</strong><span id="npOccupation" /></p>' +
+  '<p><strong>Location:</strong><span id="npLocation" /></p>' +
+'</div>'
+    );
+
+    var np = $('body #namePreview');
+    np.css('opacity', 0);
+    
+    // Build the text for the Ajax messages
+    var ajaxP1 = 'Please check your e-mail for a confirmation message. You must click on the URL in the message for your feedback to be submitted.';
+    var ajaxP2 = '<strong>Thank you.</strong>';
+    var moderatedFlag = $('#Moderated_Flag').val();
+    var emailVerifyFlag = $('#Email_Verify_Flag').val();
+    if (moderatedFlag && emailVerifyFlag) {
+      ajaxP2 = 'Your feedback will then be reviewed by our moderator.';
+    } else if (moderatedFlag) {
+      ajaxP1 = 'Your feedback has been submitted for review by our moderator.';
+    } else if (emailVerifyFlag) {
+      // Messages already set, but we need this ELSE IF in order for the ELSE to catch the right stuff
+    } else {
+      ajaxP1 = 'Your feedback has been submitted.';
+    }
+
+    // Helper functions -------------------------------------------------------
+    function ajaxPost() {
+      $.post(
+        '/vfeedback/action.v?ACTION=ajaxPost',
+        {
+          Name: $.trim(fbName.val()),
+          Email: $.trim(fbEmail.val()),
+          Occupation: $.trim($('#fbOccupation').val()),
+          Location: $.trim($('#fbLocation').val()),
+          Display_Email_Flag: $('#fbForm input:radio:checked').val(),
+          Comment: $.trim(fbComment.val()),
+          Topic_Name: $('#Topic_Name').val(),
+          Topic_ID: $('#Topic_ID').val()
+         },
+        function(data) {
+          $('#ajaxLoading')
+            .find('#loadingImg').slideUp('normal', function() {
+                $('#ajaxLoading p:last').slideDown();
+            }).end()
+            .find('p:first')
+              .animate({ opacity:'0' }, 'normal', function() {
+                $(this).html(ajaxP1);
+              })
+              .animate({ opacity:'1' }, 'normal').end()
+            .find(':nth-child(3)')
+              .animate({ opacity:'0' }, 'normal', function() {
+                $(this).html(ajaxP2);
+              })
+              .animate({ opacity:'1' }, 'normal');
+        }
+      );
+    }
+
+    function CloseDialog() {
+      fbForm.slideUp('normal', function() {
+        $('#anc, #anc2').slideDown();
+      });
+    }
+
+    function ToggleSaveButton(e) {
+      // Turns out to be equivalent to: if (a || b || c)
+      if ($('#fbName, #fbEmail, #fbComment').hasClass('backgroundError')) {
+        saveFeedback.attr('disabled', 'disabled');
+      } else {
+        saveFeedback.removeAttr('disabled');
+      }
+    }
+
+    // Event Handlers ---------------------------------------------------------
+
+    // Hover over "Posted by" name to see namePreview popup
+    var namePreview = $('#feedbackBox td.feedbackAuthor .fbName');
+    if (namePreview.length) {
+      namePreview.mouseenter(function(e) {
+        var par = $(this).parent();
+        var em = '';
+        var fbe = par.find('.fbEmail');
+        if (fbe.length) em = fbe.text();
+        var occ = par.find('.fbOccupation').text();
+        var loc = par.find('.fbLocation').text();
+
+        // Put 'NA' in empty fields
+        if (em == '') em = 'NA'; if (occ == '') occ = 'NA'; if (loc == '') loc = 'NA';
+        np.find('#npEmail').html(em);
+        np.find('#npOccupation').html(occ);
+        np.find('#npLocation').html(loc);
+
+        np.css({
+          'left': e.pageX + 13,
+          'top': e.pageY + 5
+        })
+        .stop()
+        .animate({ opacity: 1 }, 'normal');
+      }).mousemove(function(e) {
+        np.css({
+          'left': e.pageX + 13,
+          'top': e.pageY + 5
+        });
+      }).mouseleave(function(e) {
+        // Fade out and then move it out of the way
+        np.stop().animate({ opacity: 0 }, 'normal', function () { $(this).css('top','-500px'); });
+      });
+    }
+
+    // "Add New Comment" link
+    $('#anc a, #anc2 a').click(function() {
+      $('#anc2').slideUp();
+
+      $('#anc').slideUp('normal', function() {
+        // Reset fields
+        $('#fbForm .formItems input:text, #fbForm #fbComment').val('');
+        $('#fbName, #fbEmail, #fbComment').addClass('backgroundError');
+        $('#fbNo').attr('checked', 'checked');
+
+        fbForm.slideDown('normal', function() {
+          // If necessary, scroll to keep the feedback form in view
+          if ($(this).is(':not(:inView)')) {
+            var sTop = $(this).offset().top;
+
+            // The L16 template has a "top bar" that can be "sticky" - take that into account when scrolling
+            if ($('.container-top-bar.sticky-top-bar').length) {
+              sTop -= ($('.container-top-bar.sticky-top-bar').outerHeight(true) + 5);
+            }
+
+            $('html,body').animate({ scrollTop: sTop }, 'normal');
+          }
+
+          // Put the cursor in the Name field
+          fbName.focus();
+
+        });
+      });
+      return false;
+    });
+
+    // Cancel button in feedback form
+    $('#cancelFeedback').click(CloseDialog);
+
+    // Close the dialog if Escape key is pressed
+    fbForm.keyup(function(e) {
+      if (e.keyCode == 27) CloseDialog();
+    });
+
+    // Watch required fields and enable/disable Save button based on existence of text in those fields
+    fbName.keyup(function(e) {
+      if ($.trim($(this).val()) == '') {
+        $(this).addClass('backgroundError');
+      } else {
+        $(this).removeClass('backgroundError');
+      }
+      ToggleSaveButton(e);
+    });
+    fbEmail.keyup(function(e) {
+      var em = $.trim($(this).val());
+      if (em == '') {
+        $(this).addClass('backgroundError');
+      } else {
+        var filter = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+        if (filter.test(em)) {
+          $(this).removeClass('backgroundError');
+        } else {
+          $(this).addClass('backgroundError');
+        }
+      }
+      ToggleSaveButton(e);
+    });
+    fbComment.keyup(function(e) {
+      if ($.trim($(this).val()) == '') {
+        $(this).addClass('backgroundError');
+      } else {
+        $(this).removeClass('backgroundError');
+      }
+      ToggleSaveButton(e);
+    });
+
+    // Save button in feedback form
+    saveFeedback.click(function() {
+      // Only want to create the "loading" div once
+      if ($('#ajaxLoading').length == 0) {
+        $(
+'<div id="ajaxLoading" style="display:none;">' +
+  '<p />' +
+  '<p id="loadingImg"><img src="" /></p>' +
+  '<p />' +
+  '<p><input type="button" value="Close" class="btn btn-primary" /></p>' +
+'</div>'
+        ).insertAfter('#fbForm');
+
+        $('#ajaxLoading').css({
+          'background-color': $('#fbForm p').css('background-color'),
+          'text-align': 'center'
+        })
+        .find('p:last input')
+        .click(function() {
+          if (!moderatedFlag && !emailVerifyFlag) {
+            // If no moderation, reload the page to display the new feedback post
+            location.reload();
+          } else {
+            $('#ajaxLoading').slideUp('normal', function() {
+              $('#anc, #anc2').slideDown();
+            });
+          }
+        });
+      }
+
+      fbForm.slideUp('normal', function() {
+        $('#ajaxLoading')
+          .find('p:first').html('Saving your feedback...').end()
+          .find('#loadingImg').removeAttr('style').end()
+          // Reset the img src - without this, the animated gif will only animate the first time a feedback is posted.
+          .find('#loadingImg img').attr('src', '').attr('src','https://socshelp.socs.net/images/ajax_bar_loader.gif').end()
+          .find(':nth-child(3)').html('...this may take a few seconds.').end()
+          .find('p:last').hide().end()
+          .slideDown('normal', function() {
+            ajaxPost();
+          });
+      });
+    });
+
+  });
+})(jQuery);
+
