@@ -8,10 +8,11 @@ app = FastAPI()
 # Add CORS middleware with expanded configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=["http://127.0.0.1:5501", "http://localhost:5501"],  # Allow specific origins
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
 )
 
 class QueryRequest(BaseModel):
@@ -20,8 +21,8 @@ class QueryRequest(BaseModel):
 @app.post("/query/")
 async def my_query_endpoint(query: QueryRequest):
     return await get_query_result(query)
-# test
+
 # Add this code to run the server when the file is executed directly
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=80) # 8000 is already in use from Milvus
+    uvicorn.run(app, host="0.0.0.0", port=8000)

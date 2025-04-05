@@ -894,7 +894,7 @@ document.addEventListener('DOMContentLoaded', function() {
           userInput.value = '';
           
           try {
-              const response = await fetch('http://localhost:80/query/', {
+              const response = await fetch('http://localhost:8000/query/', {
                   method: 'POST',
                   headers: {
                       'Content-Type': 'application/json',
