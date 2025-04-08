@@ -91,8 +91,8 @@ async def get_query_result(query: QueryRequest):
         }
         for doc in resp_dict["context"]
     ]
-    print(clipped_answer)
     
+    print(filtered_sources)
     return {
         "question": query.query,
         "answer": clipped_answer,

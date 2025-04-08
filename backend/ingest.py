@@ -70,8 +70,8 @@ def trim_metadata(docs):
     for doc in docs:
         # editing meta data to correct title
         source = doc.metadata.get("source")
-        title = source.replace("TempDocumentStore\\","")
-
+        title = source.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+        print(title)
         url = find_url(CSV_FILE, title)
         if not url:
             url = "None"

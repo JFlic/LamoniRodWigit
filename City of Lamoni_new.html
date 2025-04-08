@@ -6,26 +6,48 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        .message {
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
         .message pre {
             background-color: #f8f9fa;
             padding: 10px;
             border-radius: 5px;
             overflow-x: auto;
+            max-width: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         .message code {
             background-color: #f8f9fa;
             padding: 2px 4px;
             border-radius: 3px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         .message ul, .message ol {
             padding-left: 20px;
+            margin-bottom: 1em;
         }
         .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
             margin-top: 1em;
             margin-bottom: 0.5em;
+            word-wrap: break-word;
         }
         .message p {
             margin-bottom: 1em;
+            word-wrap: break-word;
+        }
+        .message table {
+            max-width: 100%;
+            overflow-x: auto;
+            display: block;
+        }
+        .message img {
+            max-width: 100%;
+            height: auto;
         }
         .loading-indicator {
             display: none;
@@ -41,6 +63,41 @@
             margin: 10px 0;
             border-radius: 5px;
             background-color: #f8d7da;
+        }
+        .ai-chat-widget {
+            max-width: 450px;
+            width: 100%;
+        }
+        .card-body {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .message a {
+            word-break: break-all;
+        }
+        .sources-section {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .sources-toggle {
+            color: #0d6efd;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: inline-block;
+        }
+        .sources-toggle:hover {
+            text-decoration: underline;
+        }
+        .sources-list {
+            margin-top: 5px;
+            padding-left: 15px;
+        }
+        .sources-list li {
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -166,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const data = await response.json();
                 if (data.answer) {
-                    addMessage(data.answer, 'ai');
+                    addMessage(data.answer, 'ai', data.sources);
                 } else {
                     throw new Error('No answer received from server');
                 }
@@ -194,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Add message to chat
-    function addMessage(text, sender) {
+    function addMessage(text, sender, sources = null) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `mb-3 ${sender}-message`;
         
@@ -206,6 +263,31 @@ document.addEventListener('DOMContentLoaded', function() {
         // Parse markdown for AI messages
         const formattedText = sender === 'ai' ? marked.parse(text) : text;
         
+        let sourcesHtml = '';
+        if (sender === 'ai' && sources && sources.length > 0) {
+            // Remove duplicate sources based on source URL
+            const uniqueSources = sources.filter((source, index, self) =>
+                index === self.findIndex((s) => s.source === source.source)
+            );
+            
+            sourcesHtml = `
+                <div class="sources-section">
+                    <div class="sources-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                        <i class="bi bi-info-circle"></i> View Sources
+                    </div>
+                    <div class="sources-list" style="display: none;">
+                        <ul>
+                            ${uniqueSources.map(source => `
+                                <li>
+                                    <a href="${source.source}" target="_blank" class="text-decoration-none">${source.title}</a>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+        
         messageDiv.innerHTML = `
             <div class="d-flex ${alignment}">
                 ${sender !== 'user' ? 
@@ -216,6 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>` : ''}
                 <div class="message p-2 rounded ${bgColor} ${textColor}">
                     ${formattedText}
+                    ${sourcesHtml}
                 </div>
                 ${sender === 'user' ? 
                     `<div class="ms-2">
@@ -227,7 +310,15 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Only scroll to bottom for user messages
+        if (sender === 'user') {
+            const chatContainer = chatMessages.parentElement;
+            // Add a small delay to ensure the loading indicator is rendered
+            setTimeout(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 100);
+        }
     }
 });
 </script>
