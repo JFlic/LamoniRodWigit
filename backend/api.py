@@ -25,4 +25,4 @@ async def my_query_endpoint(query: QueryRequest):
 # Add this code to run the server when the file is executed directly
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

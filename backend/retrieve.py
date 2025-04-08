@@ -9,8 +9,6 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
-from langchain_core.retrievers import BaseRetriever
 
 load_dotenv()
 
@@ -29,7 +27,6 @@ class QueryRequest(BaseModel):
 
 @app.post("/query/")
 async def get_query_result(query: QueryRequest):
-    print("working")
     # Initialize models and variables
     embedding = HuggingFaceEmbeddings(model_name=EMBED_MODEL_ID)
     vectorstore = Milvus(
@@ -44,7 +41,7 @@ async def get_query_result(query: QueryRequest):
     llm = Ollama(
         model="mistral",
         base_url="http://localhost:11434",
-        temperature=0.7,
+        temperature=0.5,
         top_p=0.95
     )
     
@@ -84,7 +81,6 @@ async def get_query_result(query: QueryRequest):
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
     resp_dict = rag_chain.invoke({"input": query.query})
     clipped_answer = resp_dict["answer"]
-    print(resp_dict)
 
     # Format sources to only include title and page number
     filtered_sources = [
@@ -95,6 +91,7 @@ async def get_query_result(query: QueryRequest):
         }
         for doc in resp_dict["context"]
     ]
+    print(clipped_answer)
     
     return {
         "question": query.query,
