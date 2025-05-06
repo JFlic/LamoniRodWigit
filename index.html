@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configuration
     const config = {
-        apiEndpoint: 'http://localhost:8001/query/', // Update this with your production endpoint
+        apiEndpoint: 'https://questionroddixon.com/query/',
         timeout: 30000, // 30 seconds timeout
     };
     
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Accept': 'application/json',
                     },
                     mode: 'cors',
-                    credentials: 'include',
+                    credentials: 'omit',
                     body: JSON.stringify({ query: message }),
                     signal: controller.signal
                 });

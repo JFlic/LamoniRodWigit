@@ -1,0 +1,58 @@
+# name: timescaledb
+
+# services:
+#   timescaledb:
+#     image: timescale/timescaledb-ha:pg16
+#     container_name: timescaledb
+#     environment:
+#       - POSTGRES_DB=postgres
+#       - POSTGRES_PASSWORD=SweetPotat0!Hug
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - timescaledb_data:/var/lib/postgresql/data
+#     restart: unless-stopped
+
+# volumes:
+#   timescaledb_data:
+
+name: timescaledb-pgadmin
+
+services:
+  timescaledb:
+    image: timescale/timescaledb-ha:pg16
+    container_name: timescaledb
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=SweetPotat0!Hug
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - postgres-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=HotRodDixonWork@gmail.com
+      - PGADMIN_DEFAULT_PASSWORD=SweetPotat0!Hug
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+    networks:
+      - postgres-network
+    depends_on:
+      - timescaledb
+
+volumes:
+  timescaledb_data:
+  pgadmin_data:
+
+networks:
+  postgres-network:
+    driver: bridge

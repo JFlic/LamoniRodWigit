@@ -25,6 +25,7 @@ langchain_community
 langchain_docling
 langchain_huggingface
 langchain_milvus
+langchain_postgres
 fastapi
 torch
 uvicorn
@@ -32,6 +33,7 @@ dotenv
 html2text
 pandas
 pydantic
+psycopg2_binary
 python-dotenv>=0.19.0 
 retrieve
 

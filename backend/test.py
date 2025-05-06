@@ -93,13 +93,13 @@ async def get_query_result(query: QueryRequest):
         for doc in resp_dict["context"]
     ]
     
-    # # Print the response for testing
-    # print("\nResponse:")
-    # print(f"Question: {question}")
-    # print(f"Answer: {resp_dict['answer']}")
-    # print("\nSources:")
-    # for source in filtered_sources:
-    #     print(f"- {source['title']} (Page {source['page']})")
+    # Print the response for testing
+    print("\nResponse:")
+    print(f"Question: {question}")
+    print(f"Answer: {resp_dict['answer']}")
+    print("\nSources:")
+    for source in filtered_sources:
+        print(f"- {source['title']} (Page {source['page']})")
     
     # return {
     #     "question": question,
