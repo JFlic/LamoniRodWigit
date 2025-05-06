@@ -13,6 +13,8 @@ from langchain_docling.loader import ExportType
 from langchain_docling import DoclingLoader
 from docling.chunking import HybridChunker
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from sentence_transformers import SentenceTransformer
+import torch
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,7 +40,8 @@ chunker = HybridChunker(
     min_tokens=50
 )
 
-def ingest_documents():
+
+def load_documents():
     """Process and ingest documents into Milvus"""
     print("Starting document ingestion process...")
     
@@ -103,38 +106,36 @@ def get_embedding(text: str) -> List[float]:
     "Generate embedding for text using BAAI/bge-m3"
     print("Starting document embedding process...")
     
-    # Gather all PDF and Markdown files
-    pdf_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.pdf"))
-    md_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.md"))
-    docx_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.docx"))
-
-    print(f"Processing {len(pdf_files)} PDFs, {len(md_files)} Markdown and {len(docx_files)} DOCX files")
-
-    # Load and chunk documents
-    all_splits = []
-
-    # Process Markdown files
-    for file in md_files:
-        print(f"Loading Markdown: {Path(file).name}")
-        loader = DoclingLoader(
-            file_path=[file],
-            export_type=EXPORT_TYPE,
-            chunker=chunker,
-        )
-        docs = loader.load()
+    # Initialize the model (only done once and cached)
+    if not hasattr(get_embedding, "model"):
+        # Specifically use the BAAI/bge-m3 model from HuggingFace
+        get_embedding.model = SentenceTransformer('BAAI/bge-m3')
         
-        # Trim metadata for all_splits to prevent oversize issues
-        all_splits.extend(docs)
-
-        print(all_splits)
+        # Move model to GPU if available
+        if torch.cuda.is_available():
+            get_embedding.model = get_embedding.model.to(torch.device('cuda'))
+    
+    # Generate embedding
+    # The SentenceTransformer library handles tokenization, encoding, and normalization
+    embedding = get_embedding.model.encode(
+        text,
+        normalize_embeddings=True,  # Ensure vectors are normalized (important for BGE models)
+        convert_to_numpy=True,      # Convert to numpy array for efficiency
+        show_progress_bar=True 
+    )
+    
+    # Convert to list and return
+    return embedding.tolist()
 
     # Dummy embeddings for illustration
-    import hashlib
-    # Create a deterministic but random-looking vector based on text hash
-    hash_object = hashlib.md5(text.encode())
-    seed = int(hash_object.hexdigest(), 16) % 10**8
-    np.random.seed(seed)
-    return np.random.random(1536).tolist()  # 1536 is OpenAI ada embedding dimension
+    # import hashlib
+    # # Create a deterministic but random-looking vector based on text hash
+    # hash_object = hashlib.md5(text.encode())
+    # seed = int(hash_object.hexdigest(), 16) % 10**8
+    # np.random.seed(seed)
+    # return np.random.random(1536).tolist()  # 1536 is OpenAI ada embedding dimension
+
+
 
 class VectorDB:
     def __init__(self, conn_params: Dict[str, Any]):
@@ -158,7 +159,7 @@ class VectorDB:
                     id SERIAL PRIMARY KEY,
                     content TEXT NOT NULL,
                     metadata JSONB,
-                    embedding vector(1536)
+                    embedding vector(1024)
                 );
                 """)
                 
@@ -257,6 +258,8 @@ if __name__ == "__main__":
     # Initialize vector DB
     vector_db = VectorDB(conn_params)
     
+    # Retreive data from TempDocumentStore
+    
     # Example documents
     documents = [
         "The quick brown fox jumps over the lazy dog",
@@ -276,17 +279,17 @@ if __name__ == "__main__":
     ]
     
     # Add documents to vector DB
-    vector_db.add_documents(documents, metadatas)
+    #vector_db.add_documents(documents, metadatas)
     
     # Perform a query
-    query = "AI"
-    results = vector_db.similarity_search(query, k=3)
+    # query = "SQL"
+    # results = vector_db.similarity_search(query, k=3)
     
-    print(f"Query: {query}\n")
-    print("Top 3 results:")
-    for i, result in enumerate(results):
-        print(f"{i+1}. {result['content']} (Similarity: {result['similarity']:.4f})")
-        print(f"   Metadata: {result['metadata']}")
+    # print(f"Query: {query}\n")
+    # print("Top 3 results:")
+    # for i, result in enumerate(results):
+    #     print(f"{i+1}. {result['content']} (Similarity: {result['similarity']:.4f})")
+    #     print(f"   Metadata: {result['metadata']}")
     
     # Close connection
     vector_db.close()
