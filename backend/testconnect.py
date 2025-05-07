@@ -15,6 +15,7 @@ from docling.chunking import HybridChunker
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 import torch
+import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -41,14 +42,14 @@ chunker = HybridChunker(
 )
 
 
-def load_documents():
+def process_documents(urlpath):
     """Process and ingest documents into Milvus"""
     print("Starting document ingestion process...")
     
     # Gather all PDF and Markdown files
-    pdf_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.pdf"))
-    md_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.md"))
-    docx_files = glob.glob(os.path.join(DOC_LOAD_DIR, "*.docx"))
+    pdf_files = glob.glob(os.path.join(urlpath, "*.pdf"))
+    md_files = glob.glob(os.path.join(urlpath, "*.md"))
+    docx_files = glob.glob(os.path.join(urlpath, "*.docx"))
 
     print(f"Processing {len(pdf_files)} PDFs, {len(md_files)} Markdown and {len(docx_files)} DOCX files")
 
@@ -64,6 +65,26 @@ def load_documents():
             chunker=chunker,
         )
         docs = loader.load()
+
+        for doc in docs:
+            # Extract only what we need from the original metadata
+            source_file = None
+            headings = None
+            timestamp = datetime.datetime.now().isoformat()
+            
+            if hasattr(doc, 'metadata') and doc.metadata:
+                if 'source' in doc.metadata:
+                    source_file = doc.metadata['source']
+                
+                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
+                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
+            
+            # Replace the metadata with simplified version
+            doc.metadata = {
+                'source': source_file,
+                'heading': headings,
+                'scraped_at': timestamp
+            }
 
         all_splits.extend(docs)
 
@@ -88,19 +109,17 @@ def load_documents():
             chunker=chunker,
         )
         docs = loader.load()
-
+ 
         all_splits.extend(docs)
     
     print(f"Total document chunks created: {len(all_splits)}")
-    print(all_splits)
     
-    # Initialize embedding and vector store
-    embedding = HuggingFaceEmbeddings(model_name=EMBED_MODEL_ID)
+    # Print an example of the trimmed metadata
+    if all_splits:
+        print("Example of trimmed metadata:")
+        print(all_splits[0].metadata)
 
-    # Process in smaller batches to avoid oversize issues
-    batch_size = 5
-    total_docs = len(all_splits)
-
+    return all_splits
 
 def get_embedding(text: str) -> List[float]:
     "Generate embedding for text using BAAI/bge-m3"
@@ -126,16 +145,6 @@ def get_embedding(text: str) -> List[float]:
     
     # Convert to list and return
     return embedding.tolist()
-
-    # Dummy embeddings for illustration
-    # import hashlib
-    # # Create a deterministic but random-looking vector based on text hash
-    # hash_object = hashlib.md5(text.encode())
-    # seed = int(hash_object.hexdigest(), 16) % 10**8
-    # np.random.seed(seed)
-    # return np.random.random(1536).tolist()  # 1536 is OpenAI ada embedding dimension
-
-
 
 class VectorDB:
     def __init__(self, conn_params: Dict[str, Any]):
@@ -189,7 +198,6 @@ class VectorDB:
         if metadatas is None:
             metadatas = [{}] * len(documents)
         
-        
         with self.conn.cursor() as cursor:
             for doc, metadata in zip(documents, metadatas):
                 embedding = get_embedding(doc)
@@ -240,6 +248,12 @@ class VectorDB:
             
             return results
 
+    def get_document_count(self) -> int:
+        """Get the total number of documents in the database."""
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM documents")
+            return cursor.fetchone()[0]
+
     def close(self):
         """Close the database connection."""
         if self.conn:
@@ -258,38 +272,48 @@ if __name__ == "__main__":
     # Initialize vector DB
     vector_db = VectorDB(conn_params)
     
+    # Check initial document count
+    initial_count = vector_db.get_document_count()
+    print(f"Initial document count: {initial_count}")
+    
     # Retreive data from TempDocumentStore
+    processed_docs = process_documents(DOC_LOAD_DIR)
+
+    documents = []
+    metadatas = []
+
+    for doc in processed_docs:
+        # Extract the document content
+        if hasattr(doc, 'page_content'):
+            documents.append(doc.page_content)
+        else:
+            # Fall back to string representation if no page_content attribute
+            documents.append(str(doc))
+        
+        # Use the trimmed metadata we created
+        metadatas.append(doc.metadata)
     
-    # Example documents
-    documents = [
-        "The quick brown fox jumps over the lazy dog",
-        "Machine learning is a subset of artificial intelligence",
-        "Neural networks are inspired by the human brain",
-        "PostgreSQL is an advanced open-source database",
-        "Vector search enables semantic search capabilities"
-    ]
-    
-    # Example metadata
-    metadatas = [
-        {"source": "example1", "category": "phrase"},
-        {"source": "example2", "category": "AI"},
-        {"source": "example3", "category": "AI"},
-        {"source": "example4", "category": "database"},
-        {"source": "example5", "category": "search"}
-    ]
+    print(f"Prepared {len(documents)} documents for vector DB")
     
     # Add documents to vector DB
-    #vector_db.add_documents(documents, metadatas)
+    vector_db.add_documents(documents, metadatas)
+    
+    # Check final document count
+    final_count = vector_db.get_document_count()
+    print(f"Final document count: {final_count}")
     
     # Perform a query
-    # query = "SQL"
-    # results = vector_db.similarity_search(query, k=3)
+    query = "Tell me about Lamoni Iowa"
+    results = vector_db.similarity_search(query, k=3)
     
-    # print(f"Query: {query}\n")
-    # print("Top 3 results:")
-    # for i, result in enumerate(results):
-    #     print(f"{i+1}. {result['content']} (Similarity: {result['similarity']:.4f})")
-    #     print(f"   Metadata: {result['metadata']}")
+    print(f"\nQuery: {query}\n")
+    print("Top 3 results:")
+    if not results:
+        print("No results found!")
+    else:
+        for i, result in enumerate(results):
+            print(f"{i+1}. {result['content']} (Similarity: {result['similarity']:.4f})")
+            print(f"   Metadata: {result['metadata']}")
     
     # Close connection
     vector_db.close()
