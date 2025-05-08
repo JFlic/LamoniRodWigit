@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from retrieve import get_query_result
+from Retrieve import process_query
 
 app = FastAPI()
 
@@ -34,7 +34,8 @@ async def options_query():
 async def my_query_endpoint(query: QueryRequest):
     print(f"\n=== INCOMING QUERY ===")
     print(f"Query: {query.query}")
-    return await get_query_result(query)
+    result = await process_query(query.query)
+    return result
 
 # Add this code to run the server when the file is executed directly
 if __name__ == "__main__":

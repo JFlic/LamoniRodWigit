@@ -17,6 +17,9 @@ from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 import torch
 import datetime
+import time
+
+process_start = time.time()
 
 # Load environment variables from .env file
 load_dotenv()
@@ -129,7 +132,7 @@ def get_embedding(text: str) -> List[float]:
     # Initialize the model (only done once and cached)
     if not hasattr(get_embedding, "model"):
         # Specifically use the BAAI/bge-m3 model from HuggingFace
-        get_embedding.model = SentenceTransformer('BAAI/bge-m3')
+        get_embedding.model = SentenceTransformer(EMBED_MODEL_ID)
         
         # Move model to GPU if available
         if torch.cuda.is_available():
@@ -231,7 +234,6 @@ class VectorDB:
         
         # Prepare query for keyword search - extract meaningful terms
         keywords = self._extract_keywords(query)
-        print(keywords)
         keyword_clause = ""
         
         if keywords:
@@ -361,6 +363,8 @@ def truncate_text(text, max_length=100):
     return text[:max_length-3] + "..."
 
 if __name__ == "__main__":
+
+
     # Connection parameters
     conn_params = {
         "host": "localhost",  # For local Python script connecting to Docker container
@@ -369,15 +373,15 @@ if __name__ == "__main__":
         "user": "postgres",
         "password": "SweetPotat0!Hug"
     }
-    
+
     # Initialize vector DB
     vector_db = VectorDB(conn_params)
     
-    # Check initial document count
-    initial_count = vector_db.get_document_count()
-    print(f"Initial document count: {initial_count}")
+    # # Check initial document count
+    # initial_count = vector_db.get_document_count()
+    # print(f"Initial document count: {initial_count}")
     
-    # Retreive data from TempDocumentStore
+    # # Retreive data from TempDocumentStore
     # processed_docs = process_documents(DOC_LOAD_DIR)
 
     # documents = []
@@ -396,17 +400,16 @@ if __name__ == "__main__":
     
     # print(f"Prepared {len(documents)} documents for vector DB")
     
-    # Add documents to vector DB
+    # # Add documents to vector DB
     # vector_db.add_documents(documents, metadatas)
     
-    # Check final document count
-    final_count = vector_db.get_document_count()
-    print(f"Final document count: {final_count}")
+    # # Check final document count
+    # final_count = vector_db.get_document_count()
+    # print(f"Final document count: {final_count}")
     
     # Perform a query
-    query = "Tell me about Lamoni Iowa"
+    query = "who are you?"
     results = vector_db.similarity_search(query, k=3)
-    print(results)
     
     print(f"\nQuery: {query}\n")
     print("Top 3 results:")
@@ -419,3 +422,20 @@ if __name__ == "__main__":
     
     # Close connection
     vector_db.close()
+
+# End Time
+process_end = time.time()
+elapsed_time = process_end - process_start
+
+# Convert to days, hours, minutes, and seconds
+days = int(elapsed_time // (24 * 3600))
+elapsed_time %= (24 * 3600)
+hours = int(elapsed_time // 3600)
+elapsed_time %= 3600
+minutes = int(elapsed_time // 60)
+seconds = elapsed_time % 60
+
+print(f"\nTotal process execution time: {days} days, {hours} hours, {minutes} minutes, and {seconds:.2f} seconds")
+
+
+    

@@ -1,51 +1,45 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-from langchain_milvus import Milvus
+import time
 from langchain_community.llms import Ollama
+from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import PromptTemplate
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from typing import List, Dict, Any
+from pydantic import Field
 
-load_dotenv()
+from VectorTools import VectorDB, truncate_text 
 
-env_path = os.path.join(os.path.dirname(__file__), ".env")
+# Connection parameters
+CONN_PARAMS = {
+    "host": "localhost",
+    "port": 5432,
+    "database": "postgres",
+    "user": "postgres",
+    "password": "SweetPotat0!Hug"
+}
 
-# Constants
-EMBED_MODEL_ID = "BAAI/bge-m3"
-MILVUS_URI = "http://localhost:19530"
-TOP_K = 4
-OLLAMA_HOST = os.getenv("http://localhost:11434/api/chat")
+# Initialize global variables
+vector_db = None
+llm = None
+PROMPT = None
 
-app = FastAPI()
+def initialize_components():
+    global vector_db, llm, PROMPT
+    
+    # Initialize vector DB
+    vector_db = VectorDB(CONN_PARAMS)
 
-class QueryRequest(BaseModel):
-    query: str
-
-@app.post("/query/")
-async def get_query_result(query: QueryRequest):
-    # Initialize models and variables
-    embedding = HuggingFaceEmbeddings(model_name=EMBED_MODEL_ID)
-    vectorstore = Milvus(
-        collection_name="lamoni_collection",
-        embedding_function=embedding,
-        connection_args={"uri": MILVUS_URI},
-    )
-
-    retriever = vectorstore.as_retriever(search_kwargs={"k": TOP_K})
-
-    # Initialize Ollama with Mistral
+    # Initialize LLM
     llm = Ollama(
         model="mistral",
         base_url="http://localhost:11434",
         temperature=0.5,
         top_p=0.95
     )
-    
-    # Significantly improved prompt with clear formatting instructions
+
+    # Define prompt template
     PROMPT = PromptTemplate.from_template(
         """"role": "You are an AI assistant named Rod Dixon for the town of Lamoni. 
         You can provide information, answer questions and perform other tasks as needed.
@@ -76,25 +70,63 @@ async def get_query_result(query: QueryRequest):
         \nQuery: {input}\nAnswer:\n"""
     )
 
-    # Create retrieval and response chain
-    question_answer_chain = create_stuff_documents_chain(llm, PROMPT)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-    resp_dict = rag_chain.invoke({"input": query.query})
-    clipped_answer = resp_dict["answer"]
+class SimpleRetriever(BaseRetriever):
+    documents: List[Document] = Field(default_factory=list)
 
-    # Format sources to only include title and page number
-    filtered_sources = [
-        {
-            "title": doc.metadata.get("title", "Unknown"), 
-            "page": doc.metadata.get("page", "1"),
-            "source": doc.metadata.get("source", "").split("\\")[-1] if doc.metadata.get("source") else "Unknown"
-        }
-        for doc in resp_dict["context"]
-    ]
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        return self.documents
+
+async def process_query(query: str) -> Dict[str, Any]:
+    global vector_db, llm, PROMPT
     
-    print(filtered_sources)
-    return {
-        "question": query.query,
-        "answer": clipped_answer,
-        "sources": filtered_sources,
-    }
+    # Initialize components if not already initialized
+    if vector_db is None or llm is None or PROMPT is None:
+        initialize_components()
+    
+    try:
+        # Perform similarity search
+        results = vector_db.similarity_search(query, k=3)
+        
+        # Convert results to Document objects
+        documents = [Document(page_content=result['content'], metadata=result['metadata']) for result in results]
+
+        # Create retrieval and response chain
+        question_answer_chain = create_stuff_documents_chain(llm, PROMPT)
+        retriever = SimpleRetriever(documents=documents)
+        rag_chain = create_retrieval_chain(
+            retriever=retriever,
+            combine_docs_chain=question_answer_chain
+        )
+        
+        # Get response
+        response = rag_chain.invoke({"input": query})
+        return {"answer": response["answer"]}
+        
+    except Exception as e:
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    # Test the query processing
+    process_start = time.time()
+    
+    test_query = "Tell me about City Council"
+    result = process_query(test_query)
+    print(result["answer"])
+    
+    # Close connection
+    if vector_db:
+        vector_db.close()
+
+    # End Time
+    process_end = time.time()
+    elapsed_time = process_end - process_start
+
+    # Convert to days, hours, minutes, and seconds
+    days = int(elapsed_time // (24 * 3600))
+    elapsed_time %= (24 * 3600)
+    hours = int(elapsed_time // 3600)
+    elapsed_time %= 3600
+    minutes = int(elapsed_time // 60)
+    seconds = elapsed_time % 60
+
+    print(f"\nTotal process execution time: {days} days, {hours} hours, {minutes} minutes, and {seconds:.2f} seconds")
