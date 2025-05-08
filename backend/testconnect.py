@@ -345,6 +345,21 @@ class VectorDB:
         if self.conn:
             self.conn.close()
 
+def truncate_text(text, max_length=100):
+    """
+    Truncate text to the specified maximum length and add ellipsis if needed.
+    
+    Args:
+        text: The text to truncate
+        max_length: Maximum length of the output text
+        
+    Returns:
+        Truncated text with ellipsis if necessary
+    """
+    if len(text) <= max_length:
+        return text
+    return text[:max_length-3] + "..."
+
 if __name__ == "__main__":
     # Connection parameters
     conn_params = {
@@ -358,11 +373,11 @@ if __name__ == "__main__":
     # Initialize vector DB
     vector_db = VectorDB(conn_params)
     
-    # # Check initial document count
-    # initial_count = vector_db.get_document_count()
-    # print(f"Initial document count: {initial_count}")
+    # Check initial document count
+    initial_count = vector_db.get_document_count()
+    print(f"Initial document count: {initial_count}")
     
-    # # Retreive data from TempDocumentStore
+    # Retreive data from TempDocumentStore
     # processed_docs = process_documents(DOC_LOAD_DIR)
 
     # documents = []
@@ -381,16 +396,17 @@ if __name__ == "__main__":
     
     # print(f"Prepared {len(documents)} documents for vector DB")
     
-    # # Add documents to vector DB
+    # Add documents to vector DB
     # vector_db.add_documents(documents, metadatas)
     
-    # # Check final document count
-    # final_count = vector_db.get_document_count()
-    # print(f"Final document count: {final_count}")
+    # Check final document count
+    final_count = vector_db.get_document_count()
+    print(f"Final document count: {final_count}")
     
     # Perform a query
     query = "Tell me about Lamoni Iowa"
     results = vector_db.similarity_search(query, k=3)
+    print(results)
     
     print(f"\nQuery: {query}\n")
     print("Top 3 results:")
@@ -398,7 +414,7 @@ if __name__ == "__main__":
         print("No results found!")
     else:
         for i, result in enumerate(results):
-            print(f"{i+1}. {result['content']} (Similarity: {result['similarity']:.4f})")
+            print(f"{i+1}. {truncate_text(result['content'])}")
             print(f"   Metadata: {result['metadata']}")
     
     # Close connection
