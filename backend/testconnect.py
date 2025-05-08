@@ -2,6 +2,7 @@ import psycopg2
 import numpy as np
 from psycopg2.extras import execute_values
 import os
+import re
 import json
 import glob
 from pathlib import Path
@@ -215,38 +216,123 @@ class VectorDB:
             
             self.conn.commit()
     
-    def similarity_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+    def similarity_search(self, query: str, k: int = 5, hybrid_ratio: float = 0.5) -> List[Dict[str, Any]]:
         """
-        Perform similarity search to find documents similar to the query.
-        Returns the top k most similar documents.
+        Perform hybrid similarity search (vector + BM25-like) to find documents similar to the query.
+        Returns the top k most similar documents after re-ranking.
+        
+        Args:
+            query: The query string
+            k: The number of results to return
+            hybrid_ratio: Balance between vector and keyword search (0.0 = all keyword, 1.0 = all vector)
         """
+        # Get vector embedding
         query_embedding = get_embedding(query)
+        
+        # Prepare query for keyword search - extract meaningful terms
+        keywords = self._extract_keywords(query)
+        print(keywords)
+        keyword_clause = ""
+        
+        if keywords:
+            # Create a text search query with weights for keyword matching
+            keyword_clause = "ts_rank(to_tsvector('english', content), to_tsquery('english', %s)) * (1 - %s) +"
         
         with self.conn.cursor() as cursor:
             # Format the query embedding as a PostgreSQL vector
             query_embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
             
-            cursor.execute(
-                """
-                SELECT id, content, metadata, 
-                       1 - (embedding <-> %s::vector) as similarity
-                FROM documents
-                ORDER BY embedding <-> %s::vector
-                LIMIT %s
-                """,
-                (query_embedding_str, query_embedding_str, k)
-            )
+            sql_query = f"""
+            SELECT id, content, metadata, 
+                {keyword_clause if keywords else ""} (1 - (embedding <=> %s::vector)) * %s as hybrid_score
+            FROM documents
+            WHERE 1=1
+            """
             
-            results = []
-            for doc_id, content, metadata, similarity in cursor.fetchall():
-                results.append({
+            # Add keyword filter for first-stage retrieval if we have keywords
+            # This helps narrow down candidates before vector similarity
+            if keywords:
+                sql_query += " AND to_tsvector('english', content) @@ to_tsquery('english', %s)"
+                
+            sql_query += """
+            ORDER BY hybrid_score DESC
+            LIMIT %s * 3
+            """
+            
+            # Prepare parameters
+            params = []
+            if keywords:
+                params.extend([keywords, hybrid_ratio])
+            params.extend([query_embedding_str, hybrid_ratio if keywords else 1.0])
+            if keywords:
+                params.append(keywords)
+            params.append(k)
+            
+            cursor.execute(sql_query, tuple(params))
+            
+            # First-stage retrieval results
+            candidates = []
+            for doc_id, content, metadata, score in cursor.fetchall():
+                candidates.append({
                     "id": doc_id,
                     "content": content,
                     "metadata": metadata,
-                    "similarity": similarity
+                    "score": score
                 })
             
-            return results
+            # Perform re-ranking using cross-encoder scoring or more detailed similarity
+            reranked_results = self._rerank_results(query, candidates)
+            
+            # Return top-k after re-ranking
+            return reranked_results[:k]
+
+    def _extract_keywords(self, query: str) -> str:
+        """
+        Extract meaningful keywords from the query for text search.
+        Returns a formatted string for PostgreSQL ts_query.
+        """
+        # Remove stop words and special characters
+        stop_words = {"a", "an", "the", "and", "or", "but", "is", "are", "in", "on", "at", "to", "for", "with"}
+        words = re.findall(r'\b\w+\b', query.lower())
+        
+        # Filter out stop words and short terms
+        keywords = [word for word in words if word not in stop_words and len(word) > 2]
+        
+        if not keywords:
+            return ""
+        
+        # Format for PostgreSQL tsquery (word1 | word2 | word3)
+        return " | ".join(keywords)
+
+    def _rerank_results(self, query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Re-rank the candidate results using a more sophisticated scoring method.
+        This could use a cross-encoder or more detailed similarity calculation.
+        """
+        # For BAAI/bge-m3, ideally you would use a cross-encoder here
+        # But as a simple implementation, we can use a combination of:
+        # 1. Exact phrase match bonus
+        # 2. Keyword density
+        # 3. Original hybrid score
+        
+        for doc in candidates:
+            content = doc["content"].lower()
+            query_lower = query.lower()
+            
+            # Exact phrase match bonus (1.5x boost if exact query appears)
+            exact_match_bonus = 1.5 if query_lower in content else 1.0
+            
+            # Keyword density check
+            keywords = self._extract_keywords(query).split(" | ")
+            keyword_count = sum(1 for keyword in keywords if keyword in content)
+            keyword_density = keyword_count / len(keywords) if keywords else 0
+            
+            # Compute final score - original score plus bonuses
+            final_score = doc["score"] * exact_match_bonus * (1 + keyword_density * 0.5)
+            doc["final_score"] = final_score
+        
+        # Sort by final score
+        return sorted(candidates, key=lambda x: x.get("final_score", 0), reverse=True)
 
     def get_document_count(self) -> int:
         """Get the total number of documents in the database."""
@@ -272,35 +358,35 @@ if __name__ == "__main__":
     # Initialize vector DB
     vector_db = VectorDB(conn_params)
     
-    # Check initial document count
-    initial_count = vector_db.get_document_count()
-    print(f"Initial document count: {initial_count}")
+    # # Check initial document count
+    # initial_count = vector_db.get_document_count()
+    # print(f"Initial document count: {initial_count}")
     
-    # Retreive data from TempDocumentStore
-    processed_docs = process_documents(DOC_LOAD_DIR)
+    # # Retreive data from TempDocumentStore
+    # processed_docs = process_documents(DOC_LOAD_DIR)
 
-    documents = []
-    metadatas = []
+    # documents = []
+    # metadatas = []
 
-    for doc in processed_docs:
-        # Extract the document content
-        if hasattr(doc, 'page_content'):
-            documents.append(doc.page_content)
-        else:
-            # Fall back to string representation if no page_content attribute
-            documents.append(str(doc))
+    # for doc in processed_docs:
+    #     # Extract the document content
+    #     if hasattr(doc, 'page_content'):
+    #         documents.append(doc.page_content)
+    #     else:
+    #         # Fall back to string representation if no page_content attribute
+    #         documents.append(str(doc))
         
-        # Use the trimmed metadata we created
-        metadatas.append(doc.metadata)
+    #     # Use the trimmed metadata we created
+    #     metadatas.append(doc.metadata)
     
-    print(f"Prepared {len(documents)} documents for vector DB")
+    # print(f"Prepared {len(documents)} documents for vector DB")
     
-    # Add documents to vector DB
-    vector_db.add_documents(documents, metadatas)
+    # # Add documents to vector DB
+    # vector_db.add_documents(documents, metadatas)
     
-    # Check final document count
-    final_count = vector_db.get_document_count()
-    print(f"Final document count: {final_count}")
+    # # Check final document count
+    # final_count = vector_db.get_document_count()
+    # print(f"Final document count: {final_count}")
     
     # Perform a query
     query = "Tell me about Lamoni Iowa"
