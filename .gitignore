@@ -52,3 +52,5 @@ yarn-error.log*
 next-env.d.ts
 
 GracelandWebsite
+docker-compose.yml
+Dockerfile
