@@ -1,5 +1,6 @@
 RegularORC
 .env
+.env.production
 SpellcheckedScans
 .venv
 Horizons
@@ -52,7 +53,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Docker
-
 GracelandWebsite
 docker-compose.yml
 Dockerfile
