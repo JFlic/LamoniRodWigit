@@ -12,6 +12,7 @@ app.add_middleware(
         "http://127.0.0.1:5501",
         "https://questionroddixon.com",
         "http://localhost:3000",
+        "https://lamoni-rod-wigit.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

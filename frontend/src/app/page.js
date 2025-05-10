@@ -11,9 +11,11 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const latestResponseRef = useRef(null); // Reference for the latest AI response
-
+//
   // Backend URL configuration
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://questionroddixon.com";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+  const bruh = 0;
 
   // Common questions for quick access
   const commonQuestions = [
