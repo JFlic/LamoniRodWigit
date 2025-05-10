@@ -15,8 +15,6 @@ export default function Home() {
   // Backend URL configuration
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-  const bruh = 0;
-
   // Common questions for quick access
   const commonQuestions = [
     "How do I make a club at Graceland?",
