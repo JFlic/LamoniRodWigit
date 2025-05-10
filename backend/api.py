@@ -29,8 +29,15 @@ async def root():
 
 @app.options("/query/")
 async def options_query():
-    print('OPTIONS request received')
-    return Response(status_code=200)
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
 
 @app.post("/query/")
 async def my_query_endpoint(query: QueryRequest):
