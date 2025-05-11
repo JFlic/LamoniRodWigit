@@ -17,7 +17,7 @@ export default function Home() {
 
   // Common questions for quick access
   const commonQuestions = [
-    "How do I make a club at Graceland?",
+    "What are some things to do in Lamoni?",
     "What are some events on campus?",
     "Where do I eat on campus?",
     "What do I need for the Data Science?"
@@ -118,7 +118,7 @@ export default function Home() {
             <div className="flex justify-center mb-6">
               <div className="w-42 h-42 rounded-full overflow-hidden border-4 border-[#fbcc0d] shadow-lg">
                 <Image 
-                  src="/person.JPG" 
+                  src="/output.png" 
                   alt="Rod Dixon"
                   width={200}
                   height={200}
@@ -213,7 +213,7 @@ export default function Home() {
                             : "bg-gray-300 rounded-t-lg"
                         }`}>
                         <div className="w-12 h-12 rounded-full overflow-hidden mr-2">
-                        <Image src="/person.JPG" alt="Rod Dixon"
+                        <Image src="/rodicon.jpg" alt="Rod Dixon"
                       width={50}
                       height={50}
                       className="rounded-full object-cover"
@@ -278,7 +278,7 @@ export default function Home() {
                           : "bg-gray-300 rounded-t-lg"
                       }`}>
                         <div className="w-12 h-12 rounded-full overflow-hidden mr-2">
-                        <Image src="/person.JPG" alt="Rod Dixon"
+                        <Image src="/rodicon.jpg" alt="Rod Dixon"
                       width={50}
                       height={50}
                       className="rounded-full object-cover"

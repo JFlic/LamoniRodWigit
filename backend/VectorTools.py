@@ -293,6 +293,8 @@ class VectorDB:
             # First-stage retrieval results
             candidates = []
             for doc_id, content, metadata, score in cursor.fetchall():
+                print(metadata)
+                print(score)
                 candidates.append({
                     "id": doc_id,
                     "content": content,

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import time
+import datetime
 from langchain_community.llms import Ollama
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
@@ -39,10 +40,17 @@ def initialize_components():
         top_p=0.95
     )
 
-    # Define prompt template
+    # Get current date information
+    current_date = datetime.datetime.now()
+    current_date_str = current_date.strftime("%A, %B %d, %Y")
+    
+    # Define prompt template with date information
     PROMPT = PromptTemplate.from_template(
         """"role": "You are an AI assistant named Rod Dixon for the town of Lamoni. 
         You can provide information, answer questions and perform other tasks as needed.
+        Today's date is {current_date}. Please be aware of this when discussing events, 
+        deadlines, or time-sensitive information. If information from the context seems outdated
+        relative to the current date, please acknowledge this in your response.
         Don't repeat queries." 
         
         \n---------------------\n{context}\n---------------------\n
@@ -84,6 +92,9 @@ async def process_query(query: str) -> Dict[str, Any]:
         initialize_components()
     
     try:
+        # Get current date for including in prompt
+        current_date = datetime.datetime.now().strftime("%A, %B %d, %Y")
+        
         # Perform similarity search
         results = vector_db.similarity_search(query, k=3)
         
@@ -102,7 +113,7 @@ async def process_query(query: str) -> Dict[str, Any]:
         documents = [Document(page_content=result['content'], metadata=result['metadata']) for result in results]
 
         # Create retrieval and response chain
-        question_answer_chain = create_stuff_documents_chain(llm, PROMPT)
+        question_answer_chain = create_stuff_documents_chain(llm, PROMPT.partial(current_date=current_date))
         retriever = SimpleRetriever(documents=documents)
         rag_chain = create_retrieval_chain(
             retriever=retriever,
