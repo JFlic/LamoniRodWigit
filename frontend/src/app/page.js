@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from 'react-markdown';
 import Image from "next/image";
+import AnimatedChatResponse from "./components/AnimatedChatResponse";
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -11,7 +11,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const latestResponseRef = useRef(null); // Reference for the latest AI response
-//
+
   // Backend URL configuration
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -118,7 +118,7 @@ export default function Home() {
             <div className="flex justify-center mb-6">
               <div className="w-42 h-42 rounded-full overflow-hidden border-4 border-[#fbcc0d] shadow-lg">
                 <Image 
-                  src="/output.png" 
+                  src="/rodicon.png" 
                   alt="Rod Dixon"
                   width={200}
                   height={200}
@@ -212,21 +212,21 @@ export default function Home() {
                             ? "bg-gray-600 rounded-t-lg" 
                             : "bg-gray-300 rounded-t-lg"
                         }`}>
-                        <div className="w-12 h-12 rounded-full overflow-hidden mr-2">
-                        <Image src="/rodicon.jpg" alt="Rod Dixon"
-                      width={50}
-                      height={50}
-                      className="rounded-full object-cover"
-                    />
-                        </div>
-                        <span className="font-semibold">Rod Dixon</span>
-                      </div>
-                        
-                        <div className="prose max-w-none">
-                          <div className={darkMode ? "markdown-dark" : "markdown-light"}>
-                            <ReactMarkdown>{conv.response.answer}</ReactMarkdown>
+                          <div className="w-12 h-12 rounded-full overflow-hidden mr-2">
+                            <Image src="/rodicon.png" alt="Rod Dixon"
+                              width={50}
+                              height={50}
+                              className="rounded-full object-cover"
+                            />
                           </div>
+                          <span className="font-semibold">Rod Dixon</span>
                         </div>
+                        
+                        {/* Animated Chat Response Component */}
+                        <AnimatedChatResponse 
+                          response={conv.response.answer} 
+                          darkMode={darkMode} 
+                        />
                         
                         {/* Sources Section */}
                         {conv.response.sources && conv.response.sources.length > 0 && (
@@ -234,10 +234,7 @@ export default function Home() {
                             <h4 className="text-xs uppercase font-semibold opacity-70 mb-1">Sources</h4>
                             <ul className="text-xs space-y-1 opacity-80">
                               {conv.response.sources.map((source, idx) => (
-                                console.log(`Source ${idx}:`, source),
-                                
                                 <li key={idx}>
-                                  
                                   {source.source && source.source !== "None" ? (
                                     <a 
                                       href={source.url} 
@@ -278,11 +275,11 @@ export default function Home() {
                           : "bg-gray-300 rounded-t-lg"
                       }`}>
                         <div className="w-12 h-12 rounded-full overflow-hidden mr-2">
-                        <Image src="/rodicon.jpg" alt="Rod Dixon"
-                      width={50}
-                      height={50}
-                      className="rounded-full object-cover"
-                    />
+                          <Image src="/rodicon.png" alt="Rod Dixon"
+                            width={50}
+                            height={50}
+                            className="rounded-full object-cover"
+                          />
                         </div>
                         <span className="font-semibold">Rod Dixon</span>
                       </div>
