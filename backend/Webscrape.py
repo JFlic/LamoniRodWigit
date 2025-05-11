@@ -12,7 +12,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "LeadOnLamoni")
 CSV_FILE = os.path.join(SCRIPT_DIR, "LamoniUrls.csv")
 BASE_URL = "https://www.leadonlamoni.com/"
-MAX_PAGES = 100  # Reduced from 10000 for testing
+MAX_PAGES = 10000
 
 # Create directory if it doesn't exist
 os.makedirs(DOC_LOAD_DIR, exist_ok=True)
@@ -33,7 +33,7 @@ def clean_filename(url):
     return filename
 
 def is_valid_url(url):
-    """Check if a URL should be scraped"""
+    """Check if a URL should be scraped. Only accept homepage and /vnews/ URLs."""
     if not url:
         return False
         
@@ -41,36 +41,22 @@ def is_valid_url(url):
     
     # Check if it's within the same domain
     if "leadonlamoni.com" not in parsed.netloc:
+        print(f"Skipping non-domain URL: {url}")
         return False
     
-    # Check for excluded file extensions
+    # Only accept the homepage or URLs containing /vnews/
+    is_homepage = parsed.path == "/" or parsed.path == ""
+    is_vnews = "/vnews/" in parsed.path
+    
+    if not (is_homepage or is_vnews):
+        print(f"Skipping non-vnews URL: {url}")
+        return False
+    
+    # Check for excluded file extensions even within vnews
     excluded_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.mp3', '.mp4', '.avi']
     if any(url.lower().endswith(ext) for ext in excluded_extensions):
+        print(f"Skipping excluded file type: {url}")
         return False
-    
-    # Exclude specific paths that are not content pages
-    excluded_paths = [
-        '/wp-admin',
-        '/wp-login',
-        '/wp-content',
-        '/wp-includes',
-        '/feed',
-        '/tag',
-        '/category',
-        '/author',
-        '/comment',
-        '/search',
-        '/page',
-        '/attachment'
-    ]
-    if any(path in parsed.path.lower() for path in excluded_paths):
-        return False
-    
-    # Exclude URLs with query parameters that indicate non-content pages
-    excluded_queries = ['action', 'login', 'register', 'logout', 'admin']
-    if parsed.query:
-        if any(query in parsed.query.lower() for query in excluded_queries):
-            return False
     
     return True
 
@@ -81,7 +67,7 @@ def scrape_page(url):
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         
         if response.status_code != 200:
             print(f"Failed to fetch {url}: Status code {response.status_code}")
@@ -171,12 +157,31 @@ def scrape_page(url):
         
         # Extract links from the page
         links = []
+        all_links_count = 0
+        valid_links_count = 0
+        vnews_links_count = 0
+        
+        # Find all links on the page
         for a_tag in soup.find_all('a', href=True):
+            all_links_count += 1
             link = a_tag['href']
+            
+            # Skip empty, anchor or javascript links
+            if not link or link.startswith('#') or link.startswith('javascript:'):
+                continue
+            
+            # Convert relative links to absolute
             absolute_link = urljoin(url, link)
             
+            # Count vnews links separately for debugging
+            if "/vnews/" in absolute_link:
+                vnews_links_count += 1
+            
             if is_valid_url(absolute_link):
+                valid_links_count += 1
                 links.append(absolute_link)
+        
+        print(f"Found {all_links_count} total links, {vnews_links_count} vnews links, {valid_links_count} valid links")
                 
         return links, content, title
         
@@ -257,14 +262,53 @@ def find_url(csv_file, document_name):
         print(f"Error finding URL: {e}")
         return None
     
+def find_vnews_url_on_homepage():
+    """Find all vnews URLs on the homepage"""
+    print("Looking for vnews links on the homepage...")
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(BASE_URL, headers=headers, timeout=15)
+        
+        if response.status_code != 200:
+            print(f"Failed to fetch homepage: Status code {response.status_code}")
+            return []
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        vnews_links = []
+        
+        for a_tag in soup.find_all('a', href=True):
+            link = a_tag['href']
+            absolute_link = urljoin(BASE_URL, link)
+            
+            if "/vnews/" in absolute_link and absolute_link not in vnews_links:
+                vnews_links.append(absolute_link)
+                print(f"Found vnews link: {absolute_link}")
+        
+        print(f"Found {len(vnews_links)} vnews links on homepage")
+        return vnews_links
+    
+    except Exception as e:
+        print(f"Error finding vnews links on homepage: {e}")
+        return []
+
 def scrape_website():
     """Scrape the website and save content to markdown files"""
     print(f"Starting to scrape {BASE_URL}")
     start_time = time.time()
     
     visited_urls = set()
-    url_queue = [BASE_URL]
+    url_queue = [BASE_URL]  # Start with homepage
     extracted_pages = []
+    
+    # First find all vnews links on the homepage and add them to the queue
+    vnews_links = find_vnews_url_on_homepage()
+    for link in vnews_links:
+        if link not in url_queue:
+            url_queue.append(link)
+    
+    print(f"Initial queue has {len(url_queue)} URLs")
     
     while url_queue and len(visited_urls) < MAX_PAGES:
         # Get next URL to process
@@ -288,22 +332,49 @@ def scrape_website():
             
             # Update CSV immediately after saving each file
             update_csv([(current_url, filename)])
+        else:
+            print(f"No content extracted from {current_url}")
         
-        # Add new links to the queue
+        # Add new links to the queue - but only vnews links or homepage
+        links_added = 0
         for link in new_links:
             if link not in visited_urls and link not in url_queue:
-                url_queue.append(link)
+                # Double-check that it's a valid URL (homepage or vnews)
+                parsed = urlparse(link)
+                is_homepage = parsed.path == "/" or parsed.path == ""
+                is_vnews = "/vnews/" in parsed.path
+                
+                if is_homepage or is_vnews:
+                    url_queue.append(link)
+                    links_added += 1
+        
+        print(f"Added {links_added} new URLs to the queue. Queue size: {len(url_queue)}")
         
         # Add some delay to be respectful
-        time.sleep(random.uniform(1.0, 2.0))
+        delay = random.uniform(1.0, 2.0)
+        print(f"Waiting {delay:.2f} seconds before next request")
+        time.sleep(delay)
         
-        print(f"Progress: {len(visited_urls)}/{MAX_PAGES} pages processed")
+        print(f"Progress: {len(visited_urls)}/{MAX_PAGES} pages processed, {len(extracted_pages)} pages extracted")
     
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print(f"Scraping completed. Processed {len(visited_urls)} pages in {elapsed_time:.2f} seconds.")
+    
+    print(f"\nScraping completed. Processed {len(visited_urls)} pages in {elapsed_time:.2f} seconds.")
     print(f"Extracted content saved to {len(extracted_pages)} files in {DOC_LOAD_DIR}")
     print(f"URL tracking updated in {CSV_FILE}")
+    
+    # Print summary of scraped pages
+    print("\nSummary of scraped pages:")
+    for i, (url, filename) in enumerate(extracted_pages, 1):
+        print(f"{i}. {url} -> {filename}")
+    
+    # List all vnews files separately
+    vnews_files = [(url, filename) for url, filename in extracted_pages if "/vnews/" in url]
+    
+    print(f"\nTotal vnews pages found: {len(vnews_files)}")
+    for i, (url, filename) in enumerate(vnews_files, 1):
+        print(f"{i}. {url}")
     
     return len(extracted_pages)
 
@@ -315,4 +386,17 @@ if __name__ == "__main__":
     # Step 1: Scrape the website
     print("=== STEP 1: SCRAPING WEBSITE ===")
     num_pages = scrape_website()
+    
+    process_end = time.time()
+    elapsed_time = process_end - process_start
+    
+    # Convert to days, hours, minutes, and seconds
+    days = int(elapsed_time // (24 * 3600))
+    elapsed_time %= (24 * 3600)
+    hours = int(elapsed_time // 3600)
+    elapsed_time %= 3600
+    minutes = int(elapsed_time // 60)
+    seconds = elapsed_time % 60
+
     print(f"Completed scraping with {num_pages} pages extracted")
+    print(f"\nTotal process execution time: {days} days, {hours} hours, {minutes} minutes, and {seconds:.2f} seconds")
