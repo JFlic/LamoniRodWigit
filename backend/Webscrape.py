@@ -12,7 +12,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "LeadOnLamoni")
 CSV_FILE = os.path.join(SCRIPT_DIR, "LamoniUrls.csv")
 BASE_URL = "https://www.leadonlamoni.com/"
-MAX_PAGES = 10000
+MAX_PAGES = 10000 # Won't reach this amount but just in case
 
 # Create directory if it doesn't exist
 os.makedirs(DOC_LOAD_DIR, exist_ok=True)

@@ -51,10 +51,13 @@ def find_url(csv_file, document_name):
     Returns:
     str: The corresponding URL if found, otherwise None.
     """
+
+    document_name = document_name.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\","")
+
+
     try:
       df = pd.read_csv(csv_file)
       result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
-      print(result.values[0])
       return result.values[0] if not result.empty else None
     except Exception as e:
         print(f"Error: {e}")
@@ -97,8 +100,9 @@ def process_documents(urlpath, category):
                 if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
                     headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
             
-                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
                 url = find_url(CSV_FILE,source_file)
+
                 
             # Replace the metadata with simplified version
             doc.metadata = {
