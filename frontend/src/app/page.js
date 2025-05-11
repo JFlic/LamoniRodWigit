@@ -234,18 +234,21 @@ export default function Home() {
                             <h4 className="text-xs uppercase font-semibold opacity-70 mb-1">Sources</h4>
                             <ul className="text-xs space-y-1 opacity-80">
                               {conv.response.sources.map((source, idx) => (
+                                console.log(`Source ${idx}:`, source),
+                                
                                 <li key={idx}>
+                                  
                                   {source.source && source.source !== "None" ? (
                                     <a 
-                                      href={source.source} 
+                                      href={source.url} 
                                       target="_blank" 
                                       rel="noopener noreferrer" 
                                       className={`hover:underline ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}
                                     >
-                                      {source.title || "Unknown Title"}
+                                      {source.heading || "Unknown Title"}
                                     </a>
                                   ) : (
-                                    <span>{source.title || "Unknown Title"}</span>
+                                    <span>{source.heading || "Unknown Title"}</span>
                                   )}
                                 </li>
                               ))}

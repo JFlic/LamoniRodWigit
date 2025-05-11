@@ -87,6 +87,17 @@ async def process_query(query: str) -> Dict[str, Any]:
         # Perform similarity search
         results = vector_db.similarity_search(query, k=3)
         
+        # Extract sources from results to return later
+        sources = []
+        for result in results:
+            source_info = {
+                "heading": result['metadata'].get('heading', 'Unknown Title'),
+                "source": result['metadata'].get('source', 'None'),
+                "url": result['metadata'].get('url',None),
+                "page": result['metadata'].get('page', None)
+            }
+            sources.append(source_info)
+
         # Convert results to Document objects
         documents = [Document(page_content=result['content'], metadata=result['metadata']) for result in results]
 
@@ -100,7 +111,11 @@ async def process_query(query: str) -> Dict[str, Any]:
         
         # Get response
         response = rag_chain.invoke({"input": query})
-        return {"answer": response["answer"]}
+
+        return {
+            "answer": response["answer"],
+            "sources": sources
+        }
         
     except Exception as e:
         return {"error": str(e)}
@@ -111,8 +126,6 @@ if __name__ == "__main__":
     
     test_query = "Tell me about City Council"
     result = process_query(test_query)
-    print(result["answer"])
-    
     # Close connection
     if vector_db:
         vector_db.close()

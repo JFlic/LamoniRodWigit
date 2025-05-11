@@ -44,6 +44,7 @@ async def my_query_endpoint(query: QueryRequest):
     print(f"\n=== INCOMING QUERY ===")
     print(f"Query: {query.query}")
     result = await process_query(query.query)
+    print(result)
     return result
 
 # Add this code to run the server when the file is executed directly

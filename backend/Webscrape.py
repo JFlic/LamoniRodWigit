@@ -9,13 +9,14 @@ import time
 
 # Get the directory where this script is located
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "LamoniWebsite")
+DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "LeadOnLamoni")
 CSV_FILE = os.path.join(SCRIPT_DIR, "LamoniUrls.csv")
 BASE_URL = "https://www.leadonlamoni.com/"
-MAX_PAGES = 10
+MAX_PAGES = 100  # Reduced from 10000 for testing
 
 # Create directory if it doesn't exist
 os.makedirs(DOC_LOAD_DIR, exist_ok=True)
+print(f"Created directory: {DOC_LOAD_DIR}")
 
 # Web scraping functions
 def clean_filename(url):
@@ -33,6 +34,9 @@ def clean_filename(url):
 
 def is_valid_url(url):
     """Check if a URL should be scraped"""
+    if not url:
+        return False
+        
     parsed = urlparse(url)
     
     # Check if it's within the same domain
@@ -115,7 +119,7 @@ def scrape_page(url):
             headings_dict[heading_id] = {
                 'tag': heading.name,
                 'text': heading.get_text(strip=True),
-                'position': heading.sourceline
+                'position': heading.sourceline if hasattr(heading, 'sourceline') else 0
             }
         
         # Find all text-containing elements
@@ -129,7 +133,12 @@ def scrape_page(url):
                 continue
                 
             # Skip if this is a child of another text element we've already processed
-            if any(element in parent for parent in text_elements):
+            parent_found = False
+            for parent in text_elements:
+                if parent != element and element in parent.descendants:
+                    parent_found = True
+                    break
+            if parent_found:
                 continue
                 
             # Skip elements that are likely UI elements
@@ -145,8 +154,9 @@ def scrape_page(url):
             parent_position = 0
             
             # Look for the closest heading above this element
+            element_sourceline = element.sourceline if hasattr(element, 'sourceline') else 0
             for heading_id, heading_info in headings_dict.items():
-                if heading_info['position'] < element.sourceline and heading_info['position'] > parent_position:
+                if heading_info['position'] < element_sourceline and heading_info['position'] > parent_position:
                     parent_heading = heading_info
                     parent_position = heading_info['position']
             
@@ -176,18 +186,34 @@ def scrape_page(url):
 
 def save_to_markdown(url, content, title):
     """Save the extracted content to a markdown file"""
-    filename = clean_filename(url)
-    filepath = os.path.join(DOC_LOAD_DIR, f"{filename}.md")
-    
-    # Add title and metadata to the markdown file
-    full_content = f"# {title}\n\n"
-    full_content += f"Source URL: {url}\n\n"
-    full_content += content
-    
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(full_content)
-    
-    return f"{filename}.md"
+    try:
+        # Ensure the directory exists
+        os.makedirs(DOC_LOAD_DIR, exist_ok=True)
+        
+        filename = clean_filename(url)
+        filepath = os.path.join(DOC_LOAD_DIR, f"{filename}.md")
+        
+        # Add title and metadata to the markdown file
+        full_content = f"# {title}\n\n"
+        full_content += f"Source URL: {url}\n\n"
+        full_content += content
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(full_content)
+        
+        print(f"Saved file: {filepath}")
+        
+        # Verify the file was created
+        if os.path.exists(filepath):
+            print(f"Successfully created file: {filepath}")
+        else:
+            print(f"WARNING: Failed to verify file creation: {filepath}")
+            
+        return f"{filename}.md"
+    except Exception as e:
+        print(f"Error saving markdown file: {e}")
+        # Return a placeholder filename in case of error
+        return f"error_{clean_filename(url)}.md"
 
 def update_csv(url_data):
     """Update the CSV file with URLs and filenames"""
@@ -198,9 +224,11 @@ def update_csv(url_data):
         
         if not file_exists:
             writer.writerow(['URL', 'Filename'])
+            print(f"Created new CSV file: {CSV_FILE}")
             
         for url, filename in url_data:
             writer.writerow([url, filename])
+            print(f"Added to CSV: {url} -> {filename}")
 
 def find_url(csv_file, document_name):
     """
@@ -214,11 +242,19 @@ def find_url(csv_file, document_name):
     str: The corresponding URL if found, otherwise None.
     """
     try:
-      df = pd.read_csv(csv_file)
-      result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
-      return result.values[0] if not result.empty else None
+        if not os.path.exists(csv_file):
+            print(f"CSV file not found: {csv_file}")
+            return None
+            
+        df = pd.read_csv(csv_file)
+        if df.empty:
+            print(f"CSV file is empty: {csv_file}")
+            return None
+            
+        result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
+        return result.values[0] if not result.empty else None
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error finding URL: {e}")
         return None
     
 def scrape_website():
@@ -246,7 +282,12 @@ def scrape_website():
         if content:  # Save all pages that have any content
             # Save content to markdown
             filename = save_to_markdown(current_url, content, title)
+            
+            # Add to extracted pages list
             extracted_pages.append((current_url, filename))
+            
+            # Update CSV immediately after saving each file
+            update_csv([(current_url, filename)])
         
         # Add new links to the queue
         for link in new_links:
@@ -257,9 +298,6 @@ def scrape_website():
         time.sleep(random.uniform(1.0, 2.0))
         
         print(f"Progress: {len(visited_urls)}/{MAX_PAGES} pages processed")
-    
-    # Update the CSV with all the new files
-    update_csv(extracted_pages)
     
     end_time = time.time()
     elapsed_time = end_time - start_time

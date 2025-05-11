@@ -1,5 +1,6 @@
 import psycopg2
 import numpy as np
+import pandas as pd
 from psycopg2.extras import execute_values
 import os
 import re
@@ -21,16 +22,10 @@ import time
 
 process_start = time.time()
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Retrieve the token
-HF_TOKEN = os.environ.get("HUGGING_FACE_KEY30")
-login(HF_TOKEN)
-
 # Get the directory where this script is located
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "TempDocumentStore")
+CSV_FILE = os.path.join(SCRIPT_DIR, "LamoniUrls.csv")
 
 # Constants
 EMBED_MODEL_ID = "BAAI/bge-m3"
@@ -45,9 +40,28 @@ chunker = HybridChunker(
     min_tokens=50
 )
 
+def find_url(csv_file, document_name):
+    """
+    Search for a document name in a CSV file and return the corresponding URL.
+    
+    Parameters:
+    csv_file (str): Path to the CSV file.
+    document_name (str): The name of the document to search for.
+    
+    Returns:
+    str: The corresponding URL if found, otherwise None.
+    """
+    try:
+      df = pd.read_csv(csv_file)
+      result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
+      print(result.values[0])
+      return result.values[0] if not result.empty else None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
-def process_documents(urlpath):
-    """Process and ingest documents into Milvus"""
+def process_documents(urlpath, category):
+    """Process and ingest documents into PGvectorstore"""
     print("Starting document ingestion process...")
     
     # Gather all PDF and Markdown files
@@ -83,11 +97,16 @@ def process_documents(urlpath):
                 if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
                     headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
             
+                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                url = find_url(CSV_FILE,source_file)
+                
             # Replace the metadata with simplified version
             doc.metadata = {
                 'source': source_file,
                 'heading': headings,
-                'scraped_at': timestamp
+                'scraped_at': timestamp,
+                "url": url,
+                "type": category
             }
 
         all_splits.extend(docs)
@@ -117,11 +136,6 @@ def process_documents(urlpath):
         all_splits.extend(docs)
     
     print(f"Total document chunks created: {len(all_splits)}")
-    
-    # Print an example of the trimmed metadata
-    if all_splits:
-        print("Example of trimmed metadata:")
-        print(all_splits[0].metadata)
 
     return all_splits
 
@@ -382,30 +396,30 @@ if __name__ == "__main__":
     # print(f"Initial document count: {initial_count}")
     
     # # Retreive data from TempDocumentStore
-    # processed_docs = process_documents(DOC_LOAD_DIR)
+    processed_docs = process_documents(DOC_LOAD_DIR)
 
-    # documents = []
-    # metadatas = []
+    documents = []
+    metadatas = []
 
-    # for doc in processed_docs:
-    #     # Extract the document content
-    #     if hasattr(doc, 'page_content'):
-    #         documents.append(doc.page_content)
-    #     else:
-    #         # Fall back to string representation if no page_content attribute
-    #         documents.append(str(doc))
+    for doc in processed_docs:
+        # Extract the document content
+        if hasattr(doc, 'page_content'):
+            documents.append(doc.page_content)
+        else:
+            # Fall back to string representation if no page_content attribute
+            documents.append(str(doc))
         
-    #     # Use the trimmed metadata we created
-    #     metadatas.append(doc.metadata)
+        # Use the trimmed metadata we created
+        metadatas.append(doc.metadata)
     
-    # print(f"Prepared {len(documents)} documents for vector DB")
+    print(f"Prepared {len(documents)} documents for vector DB")
     
-    # # Add documents to vector DB
-    # vector_db.add_documents(documents, metadatas)
+    # Add documents to vector DB
+    vector_db.add_documents(documents, metadatas)
     
-    # # Check final document count
-    # final_count = vector_db.get_document_count()
-    # print(f"Final document count: {final_count}")
+    # Check final document count
+    final_count = vector_db.get_document_count()
+    print(f"Final document count: {final_count}")
     
     # Perform a query
     query = "who are you?"
@@ -436,6 +450,3 @@ minutes = int(elapsed_time // 60)
 seconds = elapsed_time % 60
 
 print(f"\nTotal process execution time: {days} days, {hours} hours, {minutes} minutes, and {seconds:.2f} seconds")
-
-
-    
