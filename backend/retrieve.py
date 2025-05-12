@@ -106,13 +106,23 @@ async def process_query(query: str) -> Dict[str, Any]:
         # Extract sources from results to return later
         sources = []
         for result in results:
-            source_info = {
-                "heading": result['metadata'].get('heading', 'Unknown Title'),
-                "source": result['metadata'].get('source', 'None'),
-                "url": result['metadata'].get('url',None),
-                "page": result['metadata'].get('page', None)
-            }
-            sources.append(source_info)
+            if result['metadata'].get('source') == 'Enactus Room Dataset.md':
+                source_info = {
+                    "heading": result['metadata'].get('heading', 'Unknown Title'),
+                    "source": result['metadata'].get('source', 'None'),
+                    "url": result['metadata'].get('url',None),
+                    "page": result['metadata'].get('page', None)
+                }
+                sources.append(source_info)
+                break
+            else:
+                source_info = {
+                    "heading": result['metadata'].get('heading', 'Unknown Title'),
+                    "source": result['metadata'].get('source', 'None'),
+                    "url": result['metadata'].get('url',None),
+                    "page": result['metadata'].get('page', None)
+                }
+                sources.append(source_info)
 
         # Convert results to Document objects
         documents = [Document(page_content=result['content'], metadata=result['metadata']) for result in results]

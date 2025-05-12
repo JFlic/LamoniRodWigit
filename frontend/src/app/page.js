@@ -18,7 +18,7 @@ export default function Home() {
   // Common questions for quick access
   const commonQuestions = [
     "What are some things to do in Lamoni?",
-    "What are some events on campus?",
+    "Tell me the Enactus Room stats",
     "Where do I eat on campus?",
     "What do I need for the Data Science?"
   ];
