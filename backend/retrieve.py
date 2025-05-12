@@ -1,6 +1,7 @@
-from fastapi import FastAPI
 import time
+import os
 import datetime
+from dotenv import load_dotenv
 from langchain_community.llms import Ollama
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
@@ -10,7 +11,11 @@ from langchain_core.retrievers import BaseRetriever
 from typing import List, Dict, Any
 from pydantic import Field
 
-from VectorTools import VectorDB, truncate_text 
+from VectorTools import VectorDB
+
+# Load environment variables from .env file
+load_dotenv()
+POSTGRESPASS = os.environ.get("POSTGRESPASS")
 
 # Connection parameters
 CONN_PARAMS = {
@@ -18,7 +23,7 @@ CONN_PARAMS = {
     "port": 5432,
     "database": "postgres",
     "user": "postgres",
-    "password": "SweetPotat0!Hug"
+    "password": POSTGRESPASS
 }
 
 # Initialize global variables
@@ -34,7 +39,7 @@ def initialize_components():
 
     # Initialize LLM
     llm = Ollama(
-        model="mistral",
+        model="gemma3:12b",
         base_url="http://localhost:11434",
         temperature=0.5,
         top_p=0.95

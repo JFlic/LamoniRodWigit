@@ -20,6 +20,10 @@ import torch
 import datetime
 import time
 
+# Load environment variables from .env file
+load_dotenv()
+POSTGRESPASS = os.environ.get("POSTGRESPASS")
+
 process_start = time.time()
 
 # Get the directory where this script is located
@@ -125,6 +129,32 @@ def process_documents(urlpath, category):
         )
         docs = loader.load()
 
+        for doc in docs:
+            # Extract only what we need from the original metadata
+            source_file = None
+            headings = None
+            timestamp = datetime.datetime.now().isoformat()
+            
+            if hasattr(doc, 'metadata') and doc.metadata:
+                if 'source' in doc.metadata:
+                    source_file = doc.metadata['source']
+                
+                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
+                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
+            
+                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                url = find_url(CSV_FILE,source_file)
+
+                
+            # Replace the metadata with simplified version
+            doc.metadata = {
+                'source': source_file,
+                'heading': headings,
+                'scraped_at': timestamp,
+                "url": url,
+                "type": category
+            }
+
         all_splits.extend(docs)
 
     # Process PDF files
@@ -136,6 +166,32 @@ def process_documents(urlpath, category):
             chunker=chunker,
         )
         docs = loader.load()
+
+        for doc in docs:
+            # Extract only what we need from the original metadata
+            source_file = None
+            headings = None
+            timestamp = datetime.datetime.now().isoformat()
+            
+            if hasattr(doc, 'metadata') and doc.metadata:
+                if 'source' in doc.metadata:
+                    source_file = doc.metadata['source']
+                
+                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
+                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
+            
+                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                url = find_url(CSV_FILE,source_file)
+
+                
+            # Replace the metadata with simplified version
+            doc.metadata = {
+                'source': source_file,
+                'heading': headings,
+                'scraped_at': timestamp,
+                "url": url,
+                "type": category
+            }
  
         all_splits.extend(docs)
     
@@ -391,7 +447,7 @@ if __name__ == "__main__":
         "port": 5432,
         "database": "postgres",
         "user": "postgres",
-        "password": "SweetPotat0!Hug"
+        "password": POSTGRESPASS
     }
 
     # Initialize vector DB

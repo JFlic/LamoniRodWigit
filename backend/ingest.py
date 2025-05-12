@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from docling.chunking import HybridChunker
 from VectorTools import VectorDB, process_documents
 
@@ -8,6 +9,10 @@ DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "TempDocumentStore")
 
 # Constants
 EMBED_MODEL_ID = "BAAI/bge-m3"
+
+# Load environment variables from .env file
+load_dotenv()
+POSTGRESPASS = os.environ.get("POSTGRESPASS")
 
 # Create the chunker for document processing
 chunker = HybridChunker(
@@ -26,7 +31,7 @@ if __name__ == "__main__":
         "port": 5432,
         "database": "postgres",
         "user": "postgres",
-        "password": "SweetPotat0!Hug"
+        "password": POSTGRESPASS
     }
 
     # Initialize vector DB
