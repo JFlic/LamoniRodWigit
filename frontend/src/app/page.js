@@ -4,24 +4,63 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import AnimatedChatResponse from "./components/AnimatedChatResponse";
 
+// Language translations
+const translations = {
+  en: {
+    title: "Hi I'm Rod Dixon, what do you want to know about your town?",
+    placeholder: "Enter your question",
+    askButton: "Ask Question",
+    loading: "Loading...",
+    darkMode: "Dark Mode 🌙",
+    lightMode: "Light Mode 🌞",
+    sources: "Sources",
+    send: "Send",
+    typeMessage: "Type your message..."
+  },
+  es: {
+    title: "Hola, soy Rod Dixon, ¿qué quieres saber sobre tu ciudad?",
+    placeholder: "Ingresa tu pregunta",
+    askButton: "Hacer Pregunta",
+    loading: "Cargando...",
+    darkMode: "Modo Oscuro 🌙",
+    lightMode: "Modo Claro 🌞",
+    sources: "Fuentes",
+    send: "Enviar",
+    typeMessage: "Escribe tu mensaje..."
+  }
+};
+
+// Common questions in both languages
+const commonQuestionsTranslations = {
+  en: [
+    "What are some things to do in Lamoni?",
+    "Tell me the Enactus Room stats",
+    "Where do I eat on campus?",
+    "What do I need for the Data Science?"
+  ],
+  es: [
+    "¿Qué hay para hacer en Lamoni?",
+    "Dime las estadísticas de la Sala Enactus",
+    "¿Dónde puedo comer en el campus?",
+    "¿Qué necesito para Ciencia de Datos?"
+  ]
+};
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [language, setLanguage] = useState("en"); // Default language is English
   const latestResponseRef = useRef(null); // Reference for the latest AI response
+
+  // Get translations based on current language
+  const t = translations[language];
+  const commonQuestions = commonQuestionsTranslations[language];
 
   // Backend URL configuration
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-  // Common questions for quick access
-  const commonQuestions = [
-    "What are some things to do in Lamoni?",
-    "Tell me the Enactus Room stats",
-    "Where do I eat on campus?",
-    "What do I need for the Data Science?"
-  ];
 
   // Function to scroll to the latest AI response
   const scrollToLatestResponse = () => {
@@ -97,6 +136,11 @@ export default function Home() {
     setQuery(question);
   };
 
+  // Toggle language between English and Spanish
+  const toggleLanguage = () => {
+    setLanguage(prevLang => prevLang === "en" ? "es" : "en");
+  };
+
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-white text-black"}`}>
       {/* Dark Mode Toggle Button */}
@@ -108,7 +152,19 @@ export default function Home() {
             : "bg-gray-200 text-black hover:bg-gray-300"
         }`}
       >
-        {darkMode ? "Light Mode 🌞" : "Dark Mode 🌙"}
+        {darkMode ? t.lightMode : t.darkMode}
+      </button>
+
+      {/* Language Toggle Button */}
+      <button
+        onClick={toggleLanguage}
+        className={`fixed top-16 left-4 p-2 rounded-lg shadow-md transition ${
+          darkMode 
+            ? "bg-gray-700 text-white hover:bg-gray-600" 
+            : "bg-gray-200 text-black hover:bg-gray-300"
+        }`}
+      >
+        {language === "en" ? "Español" : "English"}
       </button>
 
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -128,7 +184,7 @@ export default function Home() {
             </div>
             
             <h1 className="text-3xl font-bold text-center mb-8">
-              Hi I'm Rod Dixon, what do you want to know about your town?
+              {t.title}
             </h1>
             
             {/* Common Questions */}
@@ -155,7 +211,7 @@ export default function Home() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Enter your question"
+                  placeholder={t.placeholder}
                   className={`w-full p-4 rounded-lg border ${
                     darkMode 
                       ? "bg-gray-700 text-white border-gray-600" 
@@ -172,7 +228,7 @@ export default function Home() {
                   }`}
                   disabled={isLoading}
                 >
-                  {isLoading ? "Loading..." : "Ask Question"}
+                  {isLoading ? t.loading : t.askButton}
                 </button>
               </form>
               {error && <div className="text-red-500 mt-4">{error}</div>}
@@ -231,7 +287,7 @@ export default function Home() {
                         {/* Sources Section */}
                         {conv.response.sources && conv.response.sources.length > 0 && (
                           <div className={`mt-3 pt-3 border-t ${darkMode ? "border-gray-700" : "border-gray-300"}`}>
-                            <h4 className="text-xs uppercase font-semibold opacity-70 mb-1">Sources</h4>
+                            <h4 className="text-xs uppercase font-semibold opacity-70 mb-1">{t.sources}</h4>
                             <ul className="text-xs space-y-1 opacity-80">
                               {conv.response.sources.map((source, idx) => (
                                 <li key={idx}>
@@ -302,7 +358,7 @@ export default function Home() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Type your message..."
+                  placeholder={t.typeMessage}
                   className={`flex-grow p-3 rounded-lg border ${
                     darkMode 
                       ? "bg-gray-700 text-white border-gray-600" 
@@ -324,7 +380,7 @@ export default function Home() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg> : 
-                    <span>Send</span>
+                    <span>{t.send}</span>
                   }
                 </button>
               </form>
