@@ -8,7 +8,6 @@ utils
 transformers
 #flash_attn --no-build-isolation
 faiss-cpu
-lancedb
 langchain_community
 langchain_docling
 langchain_huggingface
@@ -30,5 +29,10 @@ bitsandbytes>=0.41.0
 sentencepiece>=0.1.99
 protobuf>=3.20.0
 timescale_vector
+
+# for translated from Spanish
+langdetect
+deep-translator
+googletrans
 
 
