@@ -34,6 +34,7 @@ SPANISH_PROMPT = None
 LANGUAGE_DETECT_PROMPT = None
 
 def initialize_components():
+    start_time = time.time()
     global vector_db, llm, PROMPT, LANGUAGE_DETECT_PROMPT, SPANISH_PROMPT
     
     # Initialize vector DB
@@ -43,7 +44,7 @@ def initialize_components():
     llm = Ollama(
         model="gemma3:12b",
         base_url="http://localhost:11434",
-        temperature=0.5,
+        temperature=0.2,
         top_p=0.95
     )
 
@@ -131,6 +132,8 @@ def initialize_components():
         Text: {query}
         """
     )
+    end_time = time.time()
+    print(f"TIMING: initialize_components took {end_time - start_time:.4f} seconds")
 
 class SimpleRetriever(BaseRetriever):
     documents: List[Document] = Field(default_factory=list)
@@ -145,15 +148,21 @@ def detect_language_and_translate(query: str) -> List[str]:
     - First element is "Spanish" or "English"
     - Second element is the English translation if Spanish, or the original query if English
     """
+    start_time = time.time()
     global llm, LANGUAGE_DETECT_PROMPT
     
     # Initialize components if not already initialized
     if llm is None or LANGUAGE_DETECT_PROMPT is None:
+        print("Initializing components in detect_language_and_translate")
         initialize_components()
     
     # Ask LLM to detect language and translate if needed
     language_prompt = LANGUAGE_DETECT_PROMPT.format(query=query)
+    
+    llm_start = time.time()
     response = llm.predict(language_prompt)
+    llm_end = time.time()
+    print(f"TIMING: Language detection LLM call took {llm_end - llm_start:.4f} seconds")
     
     # Parse the response
     language = "English"  # Default
@@ -167,18 +176,25 @@ def detect_language_and_translate(query: str) -> List[str]:
             if translation_text != "No translation needed":
                 translation = translation_text
     
+    end_time = time.time()
+    print(f"TIMING: detect_language_and_translate took {end_time - start_time:.4f} seconds")
     return [language, translation]
 
 async def process_query(query: str) -> Dict[str, Any]:
+    start_time = time.time()
     global vector_db, llm, PROMPT
     
     # Initialize components if not already initialized
     if vector_db is None or llm is None or PROMPT is None:
+        print("Initializing components in process_query")
         initialize_components()
     
     try:
         # Detect language and translate if necessary
+        lang_start = time.time()
         language_info = detect_language_and_translate(query)
+        lang_end = time.time()
+        print(f"TIMING: Language detection and translation took {lang_end - lang_start:.4f} seconds")
         print(language_info)
         
         # language_info[0] is "Spanish" or "English"
@@ -191,7 +207,10 @@ async def process_query(query: str) -> Dict[str, Any]:
         current_date = datetime.datetime.now().strftime("%A, %B %d, %Y")
         
         # Perform similarity search
+        vector_start = time.time()
         results = vector_db.similarity_search(search_query, k=3)
+        vector_end = time.time()
+        print(f"TIMING: Vector similarity search took {vector_end - vector_start:.4f} seconds")
         
         # Extract sources from results to return later
         sources = []
@@ -218,6 +237,7 @@ async def process_query(query: str) -> Dict[str, Any]:
         documents = [Document(page_content=result['content'], metadata=result['metadata']) for result in results]
 
         # Create retrieval and response chain for spanish or english.
+        llm_start = time.time()
         if language_info[0] == 'English':
             question_answer_chain = create_stuff_documents_chain(llm, PROMPT.partial(current_date=current_date))
             retriever = SimpleRetriever(documents=documents)
@@ -229,6 +249,12 @@ async def process_query(query: str) -> Dict[str, Any]:
             # Get response using the English query
             response = rag_chain.invoke({"input": search_query})
 
+            llm_end = time.time()
+            print(f"TIMING: LLM response generation took {llm_end - llm_start:.4f} seconds")
+            
+            end_time = time.time()
+            print(f"TIMING: Total process_query function took {end_time - start_time:.4f} seconds")
+            
             return {
                 "answer": response["answer"],
                 "sources": sources,
@@ -246,6 +272,12 @@ async def process_query(query: str) -> Dict[str, Any]:
             # Get response using the English query
             response = rag_chain.invoke({"input": search_query})
 
+            llm_end = time.time()
+            print(f"TIMING: LLM response generation took {llm_end - llm_start:.4f} seconds")
+            
+            end_time = time.time()
+            print(f"TIMING: Total process_query function took {end_time - start_time:.4f} seconds")
+
             return {
                 "answer": response["answer"],
                 "sources": sources,
@@ -253,6 +285,8 @@ async def process_query(query: str) -> Dict[str, Any]:
             }
         
     except Exception as e:
+        end_time = time.time()
+        print(f"TIMING: process_query function failed after {end_time - start_time:.4f} seconds")
         return {"error": str(e)}
 
 if __name__ == "__main__":

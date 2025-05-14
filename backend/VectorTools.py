@@ -202,37 +202,50 @@ def process_documents(urlpath, category):
 def get_embedding(text: str) -> List[float]:
     "Generate embedding for text using BAAI/bge-m3"
     print("Starting document embedding process...")
+    start_time = time.time()
     
     # Initialize the model (only done once and cached)
     if not hasattr(get_embedding, "model"):
+        model_init_start = time.time()
         # Specifically use the BAAI/bge-m3 model from HuggingFace
         get_embedding.model = SentenceTransformer(EMBED_MODEL_ID)
         
         # Move model to GPU if available
         if torch.cuda.is_available():
             get_embedding.model = get_embedding.model.to(torch.device('cuda'))
+        model_init_end = time.time()
+        print(f"TIMING: Embedding model initialization took {model_init_end - model_init_start:.4f} seconds")
     
     # Generate embedding
     # The SentenceTransformer library handles tokenization, encoding, and normalization
+    encode_start = time.time()
     embedding = get_embedding.model.encode(
         text,
         normalize_embeddings=True,  # Ensure vectors are normalized (important for BGE models)
         convert_to_numpy=True,      # Convert to numpy array for efficiency
         show_progress_bar=True 
     )
+    encode_end = time.time()
+    print(f"TIMING: Text encoding took {encode_end - encode_start:.4f} seconds")
     
     # Convert to list and return
+    end_time = time.time()
+    print(f"TIMING: get_embedding took {end_time - start_time:.4f} seconds")
     return embedding.tolist()
 
 class VectorDB:
     def __init__(self, conn_params: Dict[str, Any]):
         """Initialize the vector database with connection parameters."""
+        start_time = time.time()
         self.conn_params = conn_params
         self.conn = psycopg2.connect(**conn_params)
         self.setup_database()
+        end_time = time.time()
+        print(f"TIMING: VectorDB initialization took {end_time - start_time:.4f} seconds")
     
     def setup_database(self):
         """Set up the necessary database tables and extensions."""
+        start_time = time.time()
         with self.conn.cursor() as cursor:
             try:
                 # Create pgvector extension if it doesn't exist
@@ -270,6 +283,8 @@ class VectorDB:
                 print(f"Database setup error: {e}")
                 print("If the pgvector extension is not available, please install it first.")
                 self.conn.rollback()
+        end_time = time.time()
+        print(f"TIMING: Database setup took {end_time - start_time:.4f} seconds")
     
     def add_documents(self, documents: List[str], metadatas: List[Dict] = None):
         """Add documents and their embeddings to the database."""
@@ -303,17 +318,26 @@ class VectorDB:
             k: The number of results to return
             hybrid_ratio: Balance between vector and keyword search (0.0 = all keyword, 1.0 = all vector)
         """
+        start_time = time.time()
         # Get vector embedding
+        embed_start = time.time()
         query_embedding = get_embedding(query)
+        embed_end = time.time()
+        print(f"TIMING: Query embedding generation took {embed_end - embed_start:.4f} seconds")
         
         # Prepare query for keyword search - extract meaningful terms
+        keyword_start = time.time()
         keywords = self._extract_keywords(query)
+        keyword_end = time.time()
+        print(f"TIMING: Keyword extraction took {keyword_end - keyword_start:.4f} seconds")
+        
         keyword_clause = ""
         
         if keywords:
             # Create a text search query with weights for keyword matching
             keyword_clause = "ts_rank(to_tsvector('english', content), to_tsquery('english', %s)) * (1 - %s) +"
         
+        db_query_start = time.time()
         with self.conn.cursor() as cursor:
             # Format the query embedding as a PostgreSQL vector
             query_embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
@@ -344,9 +368,13 @@ class VectorDB:
                 params.append(keywords)
             params.append(k)
             
+            sql_exec_start = time.time()
             cursor.execute(sql_query, tuple(params))
+            sql_exec_end = time.time()
+            print(f"TIMING: SQL execution took {sql_exec_end - sql_exec_start:.4f} seconds")
             
             # First-stage retrieval results
+            fetch_start = time.time()
             candidates = []
             for doc_id, content, metadata, score in cursor.fetchall():
                 candidates.append({
@@ -355,18 +383,29 @@ class VectorDB:
                     "metadata": metadata,
                     "score": score
                 })
-            
-            # Perform re-ranking using cross-encoder scoring or more detailed similarity
-            reranked_results = self._rerank_results(query, candidates)
-            
-            # Return top-k after re-ranking
-            return reranked_results[:k]
+            fetch_end = time.time()
+            print(f"TIMING: Result fetching took {fetch_end - fetch_start:.4f} seconds")
+        db_query_end = time.time()
+        print(f"TIMING: Database query total took {db_query_end - db_query_start:.4f} seconds")
+        
+        # Perform re-ranking using cross-encoder scoring or more detailed similarity
+        rerank_start = time.time()
+        reranked_results = self._rerank_results(query, candidates)
+        rerank_end = time.time()
+        print(f"TIMING: Result re-ranking took {rerank_end - rerank_start:.4f} seconds")
+        
+        end_time = time.time()
+        print(f"TIMING: Total similarity_search function took {end_time - start_time:.4f} seconds")
+        
+        # Return top-k after re-ranking
+        return reranked_results[:k]
 
     def _extract_keywords(self, query: str) -> str:
         """
         Extract meaningful keywords from the query for text search.
         Returns a formatted string for PostgreSQL ts_query.
         """
+        start_time = time.time()
         # Remove stop words and special characters
         stop_words = {"a", "an", "the", "and", "or", "but", "is", "are", "in", "on", "at", "to", "for", "with"}
         words = re.findall(r'\b\w+\b', query.lower())
@@ -375,16 +414,22 @@ class VectorDB:
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
         
         if not keywords:
+            end_time = time.time()
+            print(f"TIMING: _extract_keywords took {end_time - start_time:.4f} seconds (no keywords found)")
             return ""
         
         # Format for PostgreSQL tsquery (word1 | word2 | word3)
-        return " | ".join(keywords)
+        result = " | ".join(keywords)
+        end_time = time.time()
+        print(f"TIMING: _extract_keywords took {end_time - start_time:.4f} seconds")
+        return result
 
     def _rerank_results(self, query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Re-rank the candidate results using a more sophisticated scoring method.
         This could use a cross-encoder or more detailed similarity calculation.
         """
+        start_time = time.time()
         # For BAAI/bge-m3, ideally you would use a cross-encoder here
         # But as a simple implementation, we can use a combination of:
         # 1. Exact phrase match bonus
@@ -408,7 +453,10 @@ class VectorDB:
             doc["final_score"] = final_score
         
         # Sort by final score
-        return sorted(candidates, key=lambda x: x.get("final_score", 0), reverse=True)
+        sorted_results = sorted(candidates, key=lambda x: x.get("final_score", 0), reverse=True)
+        end_time = time.time()
+        print(f"TIMING: _rerank_results took {end_time - start_time:.4f} seconds")
+        return sorted_results
 
     def get_document_count(self) -> int:
         """Get the total number of documents in the database."""
@@ -418,8 +466,11 @@ class VectorDB:
 
     def close(self):
         """Close the database connection."""
+        start_time = time.time()
         if self.conn:
             self.conn.close()
+        end_time = time.time()
+        print(f"TIMING: Database connection close took {end_time - start_time:.4f} seconds")
 
 def truncate_text(text, max_length=100):
     """
@@ -436,77 +487,3 @@ def truncate_text(text, max_length=100):
         return text
     return text[:max_length-3] + "..."
 
-if __name__ == "__main__":
-
-
-    # Connection parameters
-    conn_params = {
-        "host": "localhost",  # For local Python script connecting to Docker container
-        "port": 5432,
-        "database": "postgres",
-        "user": "postgres",
-        "password": POSTGRESPASS
-    }
-
-    # Initialize vector DB
-    vector_db = VectorDB(conn_params)
-    
-    # # Check initial document count
-    # initial_count = vector_db.get_document_count()
-    # print(f"Initial document count: {initial_count}")
-    
-    # # Retreive data from TempDocumentStore
-    processed_docs = process_documents(DOC_LOAD_DIR)
-
-    documents = []
-    metadatas = []
-
-    for doc in processed_docs:
-        # Extract the document content
-        if hasattr(doc, 'page_content'):
-            documents.append(doc.page_content)
-        else:
-            # Fall back to string representation if no page_content attribute
-            documents.append(str(doc))
-        
-        # Use the trimmed metadata we created
-        metadatas.append(doc.metadata)
-    
-    print(f"Prepared {len(documents)} documents for vector DB")
-    
-    # Add documents to vector DB
-    vector_db.add_documents(documents, metadatas)
-    
-    # Check final document count
-    final_count = vector_db.get_document_count()
-    print(f"Final document count: {final_count}")
-    
-    # Perform a query
-    query = "who are you?"
-    results = vector_db.similarity_search(query, k=3)
-    
-    print(f"\nQuery: {query}\n")
-    print("Top 3 results:")
-    if not results:
-        print("No results found!")
-    else:
-        for i, result in enumerate(results):
-            print(f"{i+1}. {truncate_text(result['content'])}")
-            print(f"   Metadata: {result['metadata']}")
-    
-    # Close connection
-    vector_db.close()
-
-# End Time
-process_end = time.time()
-elapsed_time = process_end - process_start
-
-# Convert to days, hours, minutes, and seconds
-days = int(elapsed_time // (24 * 3600))
-elapsed_time %= (24 * 3600)
-hours = int(elapsed_time // 3600)
-elapsed_time %= 3600
-minutes = int(elapsed_time // 60)
-seconds = elapsed_time % 60
-
-print(f"\nTotal process execution time: {days} days, {hours} hours, {minutes} minutes, and {seconds:.2f} seconds")

@@ -56,5 +56,5 @@ next-env.d.ts
 
 # Docker
 GracelandWebsite
-docker-compose.yml
+docker-compose
 Dockerfile
