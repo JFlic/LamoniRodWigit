@@ -34,8 +34,8 @@ const translations = {
 const commonQuestionsTranslations = {
   en: [
     "What are some things to do in Lamoni?",
-    "Tell me the Enactus Room stats",
-    "Where do I eat on campus?",
+    "tell me about the enactus room",
+    "how do I join a club on campus?",
     "What do I need for the Data Science?"
   ],
   es: [
@@ -53,6 +53,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState("en"); // Default language is English
+  const [loadingMessage, setLoadingMessage] = useState(""); // Added for dynamic loading message
   const latestResponseRef = useRef(null); // Reference for the latest AI response
 
   // Get translations based on current language
@@ -79,6 +80,25 @@ export default function Home() {
       setTimeout(scrollToLatestResponse, 100);
     }
   }, [conversations, isLoading]);
+
+  // useEffect for dynamic loading message
+  useEffect(() => {
+    let timer;
+    if (isLoading) {
+      // Reset message immediately when loading starts
+      setLoadingMessage(""); 
+      timer = setTimeout(() => {
+        // Check if still loading after 4 seconds
+        if (isLoading) { 
+          setLoadingMessage("Checking database...");
+        }
+      }, 4000);
+    } else {
+      setLoadingMessage(""); // Clear message when not loading
+    }
+
+    return () => clearTimeout(timer); // Cleanup timer on unmount or if isLoading changes
+  }, [isLoading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -221,14 +241,21 @@ export default function Home() {
                 />
                 <button 
                   type="submit" 
-                  className={`w-full p-4 rounded-lg transition-colors text-white ${
+                  className={`w-full p-4 rounded-lg transition-colors text-white flex items-center justify-center ${
                     darkMode
                       ? "bg-[#0a3683] hover:bg-[#0b4094]"
                       : "bg-[#04215a] hover:bg-[#03184a]"
                   }`}
                   disabled={isLoading}
                 >
-                  {isLoading ? t.loading : t.askButton}
+                  {isLoading ? (
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    t.askButton
+                  )}
                 </button>
               </form>
               {error && <div className="text-red-500 mt-4">{error}</div>}
@@ -298,10 +325,10 @@ export default function Home() {
                                       rel="noopener noreferrer" 
                                       className={`hover:underline ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}
                                     >
-                                      {source.heading || "Unknown Title"}
+                                      {source.heading || "Private Information"}
                                     </a>
                                   ) : (
-                                    <span>{source.heading || "Unknown Title"}</span>
+                                    <span>{source.heading || "Private Information"}</span>
                                   )}
                                 </li>
                               ))}
@@ -340,10 +367,13 @@ export default function Home() {
                         <span className="font-semibold">Rod Dixon</span>
                       </div>
                       
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce"></div>
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce delay-100"></div>
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce delay-200"></div>
+                      <div className="flex flex-col items-center py-2"> {/* Wrapper for dots and message */}
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce"></div>
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce delay-100"></div>
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce delay-200"></div>
+                        </div>
+                        {loadingMessage && <p className="mt-2 text-xs opacity-75">{loadingMessage}</p>}
                       </div>
                     </div>
                   </div>
@@ -375,13 +405,14 @@ export default function Home() {
                   } disabled:opacity-50`}
                   disabled={isLoading}
                 >
-                  {isLoading ? 
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  {isLoading ? (
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg> : 
+                    </svg>
+                  ) : (
                     <span>{t.send}</span>
-                  }
+                  )}
                 </button>
               </form>
               {error && <div className="text-red-500 mt-2 text-sm">{error}</div>}

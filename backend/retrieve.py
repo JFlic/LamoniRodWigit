@@ -1,6 +1,7 @@
 import time
 import os
 import datetime
+import re
 from dotenv import load_dotenv
 from langchain_community.llms import Ollama
 from langchain_core.prompts import PromptTemplate
@@ -42,7 +43,7 @@ def initialize_components():
 
     # Initialize LLM
     llm = Ollama(
-        model="gemma3:12b",
+        model="qwen3:1.7b",
         base_url="http://localhost:11434",
         temperature=0.2,
         top_p=0.95
@@ -98,7 +99,7 @@ def initialize_components():
         \n---------------------\n{context}\n---------------------\n
         
         Given the context information and not prior knowledge, answer the query in Spanish.
-        If the context is empty say that you don't have any information about the question.
+        If the context is empty say that you don't have any information about the question in Spanish.
         Don't give sources.
         At the end tell the user that if they have anymore questions to let you know.
         Format your response in proper markdown with formatting symbols.
@@ -119,11 +120,10 @@ def initialize_components():
         
         \nQuery: {input}\nAnswer:\n"""
     )
-    
     # Define prompt for language detection and translation
     LANGUAGE_DETECT_PROMPT = PromptTemplate.from_template(
         """Determine if the following text is in Spanish or English. 
-        If it's in Spanish, translate it to English.
+        If you are asked something in Spanish, translate it to English. But if you are asked something is English don't translate it.
         
         Return your answer in exactly this format:
         Language: [English or Spanish]
@@ -249,6 +249,10 @@ async def process_query(query: str) -> Dict[str, Any]:
             # Get response using the English query
             response = rag_chain.invoke({"input": search_query})
 
+            # Remove <think>...</think> content
+            if response.get("answer"):
+                response["answer"] = re.sub(r"<think>.*?</think>", "", response["answer"], flags=re.DOTALL).strip()
+
             llm_end = time.time()
             print(f"TIMING: LLM response generation took {llm_end - llm_start:.4f} seconds")
             
@@ -271,6 +275,10 @@ async def process_query(query: str) -> Dict[str, Any]:
             
             # Get response using the English query
             response = rag_chain.invoke({"input": search_query})
+
+            # Remove <think>...</think> content
+            if response.get("answer"):
+                response["answer"] = re.sub(r"<think>.*?</think>", "", response["answer"], flags=re.DOTALL).strip()
 
             llm_end = time.time()
             print(f"TIMING: LLM response generation took {llm_end - llm_start:.4f} seconds")
