@@ -291,7 +291,7 @@ async def process_query(query: str) -> Dict[str, Any]:
                 "sources": sources,
                 "language_info": language_info
             }
-        
+            # bruh
     except Exception as e:
         end_time = time.time()
         print(f"TIMING: process_query function failed after {end_time - start_time:.4f} seconds")
