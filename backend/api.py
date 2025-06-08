@@ -95,10 +95,11 @@ app.add_middleware(
         "https://questionroddixon.com",
         "http://localhost:3000",
         "https://lamoni-rod-wigit.vercel.app",
+        "https://*.vercel.app",  # Allow all Vercel preview deployments
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization"],  # Explicitly allow Authorization header
     expose_headers=["*"],
 )
 
@@ -122,8 +123,8 @@ async def options_query():
         status_code=200,
         headers={
             "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
             "Access-Control-Max-Age": "3600",
         }
     )

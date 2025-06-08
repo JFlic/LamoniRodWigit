@@ -102,7 +102,7 @@ export default function Home() {
   const commonQuestions = commonQuestionsTranslations[language];
 
   // Backend URL configuration
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL_PROD;
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL_PROD || 'https://questionroddixon.com';
 
   // Function to scroll to the latest AI response
   const scrollToLatestResponse = () => {
@@ -211,9 +211,10 @@ export default function Home() {
       formData.append('username', email);
       formData.append('password', password);
 
-      const response = await fetch(`${BACKEND_URL}/token`, {
+      const response = await fetch(`${BACKEND_URL}/query/token`, {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -250,11 +251,12 @@ export default function Home() {
     formData.append('category', selectedCategory);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/query/upload`, {
+      const response = await fetch(`${BACKEND_URL}/query/query/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },
+        credentials: 'include',
         body: formData,
       });
 
