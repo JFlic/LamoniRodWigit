@@ -102,7 +102,7 @@ export default function Home() {
   const commonQuestions = commonQuestionsTranslations[language];
 
   // Backend URL configuration
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL_PROD;
 
   // Function to scroll to the latest AI response
   const scrollToLatestResponse = () => {
