@@ -43,7 +43,7 @@ def initialize_components():
 
     # Initialize LLM
     llm = Ollama(
-        model="qwen3:1.7b",
+        model="qwen3:4b",
         base_url="http://localhost:11434",
         temperature=0.2,
         top_p=0.95

@@ -11,7 +11,7 @@ import time
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DOC_LOAD_DIR = os.path.join(SCRIPT_DIR, "LeadOnLamoni")
 CSV_FILE = os.path.join(SCRIPT_DIR, "LamoniUrls.csv")
-BASE_URL = "https://www.leadonlamoni.com/"
+BASE_URL = "https://iagenweb.org/decatur/historyDocs/Lamoni/early_Lamoni.html"
 MAX_PAGES = 10000 # Won't reach this amount but just in case
 
 # Create directory if it doesn't exist
@@ -39,16 +39,10 @@ def is_valid_url(url):
         
     parsed = urlparse(url)
     
-    # Check if it's within the same domain
-    if "leadonlamoni.com" not in parsed.netloc:
-        print(f"Skipping non-domain URL: {url}")
-        return False
-    
     # Only accept the homepage or URLs containing /vnews/
     is_homepage = parsed.path == "/" or parsed.path == ""
-    is_vnews = "/vnews/" in parsed.path
     
-    if not (is_homepage or is_vnews):
+    if not (is_homepage):
         print(f"Skipping non-vnews URL: {url}")
         return False
     

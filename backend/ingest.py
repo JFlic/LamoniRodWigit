@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from docling.chunking import HybridChunker
 from VectorTools import VectorDB, process_documents
 
 # Get the directory where this script is located
@@ -13,15 +12,6 @@ EMBED_MODEL_ID = "BAAI/bge-m3"
 # Load environment variables from .env file
 load_dotenv()
 POSTGRESPASS = os.environ.get("POSTGRESPASS")
-
-# Create the chunker for document processing
-chunker = HybridChunker(
-    tokenizer=EMBED_MODEL_ID,
-    max_tokens=2000,
-    overlap_tokens=200,
-    split_by_paragraph=True,
-    min_tokens=50
-)
 
 if __name__ == "__main__":
 

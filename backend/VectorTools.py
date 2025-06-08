@@ -1,7 +1,6 @@
 import psycopg2
 import numpy as np
 import pandas as pd
-from psycopg2.extras import execute_values
 import os
 import re
 import json
@@ -10,11 +9,9 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
-from huggingface_hub import login
 from langchain_docling.loader import ExportType
 from langchain_docling import DoclingLoader
 from docling.chunking import HybridChunker
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 import torch
 import datetime
@@ -39,7 +36,7 @@ EXPORT_TYPE = ExportType.DOC_CHUNKS
 chunker = HybridChunker(
     tokenizer=EMBED_MODEL_ID,
     max_tokens=2000,
-    overlap_tokens=200,
+    overlap_tokens=100,
     split_by_paragraph=True,
     min_tokens=50
 )
@@ -57,7 +54,6 @@ def find_url(csv_file, document_name):
     """
 
     document_name = document_name.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\","")
-
 
     try:
       df = pd.read_csv(csv_file)
@@ -104,10 +100,9 @@ def process_documents(urlpath, category):
                 if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
                     headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
             
-                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
                 url = find_url(CSV_FILE,source_file)
 
-                
             # Replace the metadata with simplified version
             doc.metadata = {
                 'source': source_file,
@@ -183,7 +178,6 @@ def process_documents(urlpath, category):
                 source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
                 url = find_url(CSV_FILE,source_file)
 
-                
             # Replace the metadata with simplified version
             doc.metadata = {
                 'source': source_file,
@@ -356,7 +350,7 @@ class VectorDB:
                 
             sql_query += """
             ORDER BY hybrid_score DESC
-            LIMIT %s * 3
+            LIMIT %s * 5
             """
             
             # Prepare parameters
@@ -471,19 +465,4 @@ class VectorDB:
             self.conn.close()
         end_time = time.time()
         print(f"TIMING: Database connection close took {end_time - start_time:.4f} seconds")
-
-def truncate_text(text, max_length=100):
-    """
-    Truncate text to the specified maximum length and add ellipsis if needed.
-    
-    Args:
-        text: The text to truncate
-        max_length: Maximum length of the output text
-        
-    Returns:
-        Truncated text with ellipsis if necessary
-    """
-    if len(text) <= max_length:
-        return text
-    return text[:max_length-3] + "..."
 
