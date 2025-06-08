@@ -102,6 +102,7 @@ export default function Home() {
   const commonQuestions = commonQuestionsTranslations[language];
 
   // Backend URL configuration
+  // I need to figure out a way to not have https://questionroddixon.com hard coded to the frontend for vulnerabilities
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL_PROD || 'https://questionroddixon.com';
 
   // Function to scroll to the latest AI response
@@ -149,6 +150,7 @@ export default function Home() {
     setError(null);
 
     try {
+      // Make sure we're using the correct query endpoint
       const res = await fetch(`${BACKEND_URL}/query/`, {
         method: "POST",
         headers: {
@@ -166,20 +168,17 @@ export default function Home() {
       
       // Process the sources to remove duplicates
       if (data.sources && data.sources.length > 0) {
-        // Create a map to store unique sources based on their title and source URL
         const uniqueSourcesMap = new Map();
         
         data.sources.forEach(source => {
           const key = `${source.title || "Unknown"}|${source.source || "None"}`;
           
-          // If this source hasn't been seen yet, or if the current source has a page number and the existing one doesn't
           if (!uniqueSourcesMap.has(key) || 
               (source.page && (!uniqueSourcesMap.get(key).page || uniqueSourcesMap.get(key).page > source.page))) {
             uniqueSourcesMap.set(key, source);
           }
         });
         
-        // Convert the map values back to an array
         data.sources = Array.from(uniqueSourcesMap.values());
       }
       
@@ -234,6 +233,7 @@ export default function Home() {
     }
   };
 
+  // Separate function for handling file uploads
   const handleFileUpload = async (files) => {
     if (!authToken) {
       setShowLoginModal(true);
@@ -252,7 +252,8 @@ export default function Home() {
     formData.append('category', selectedCategory);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/query/query/upload`, {
+      // Use the correct upload endpoint
+      const response = await fetch(`${BACKEND_URL}/query/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

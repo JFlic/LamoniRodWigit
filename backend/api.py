@@ -34,8 +34,8 @@ class UserInDB(User):
 
 # Replace this with a real database in production
 fake_users_db = {
-    "ILoveRod@example.com": {
-        "email": "ILoveRod@example.com",
+    "RodAdmin@example.com": {
+        "email": "RodAdmin@example.com",
         "hashed_password": pwd_context.hash("ILoveRod"),
         "disabled": False,
     }
@@ -210,7 +210,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/query/query/upload")
+@app.post("/query/upload")
 async def upload_files(
     files: List[UploadFile] = File(...),
     category: str = Form(...),
