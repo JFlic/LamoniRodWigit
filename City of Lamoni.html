@@ -954,7 +954,7 @@ Trees were ordered through Hynek’s Tree Farm in Beaconsfield, Iowa. Hynek Tree
 </div>
   
 <!-- Chat widget toggle button -->
-<button id="chat-widget-toggle" class="btn btn-primary rounded-circle" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; z-index: 999;">
+<button id="chat-widget-toggle" class="btn btn-primary rounded-circle" style n   
     <i class="bi bi-chat-dots"></i>
 </button>
   
@@ -971,7 +971,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configuration
     const config = {
-        apiEndpoint: 'https://questionroddixon.com/query/', // Update this with your production endpoint
+        apiEndpoint: 'http://localhost:8001/query', // Update this with your production endpoint
         timeout: 30000, // 30 seconds timeout
     };
     
@@ -1084,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <ul>
                             ${uniqueSources.map(source => `
                                 <li>
-                                    <a href="${source.source}" target="_blank" class="text-decoration-none">${source.title}</a>
+                                    <a href="${source.url}" target="_blank" class="text-decoration-none">${source.heading}</a>
                                 </li>
                             `).join('')}
                         </ul>

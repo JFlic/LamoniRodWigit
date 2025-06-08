@@ -1,38 +1,28 @@
-spellchecker
+# spellchecker
 bs4
-huggingface_hub
-language_tool_python
-symspellpy
+#symspellpy
 docling
 utils
 transformers
 #flash_attn --no-build-isolation
-faiss-cpu
+#faiss-cpu
 langchain_community
 langchain_docling
-langchain_huggingface
-langchain_milvus
 fastapi
 torch
-uvicorn
+uvicorn==0.15.0
 dotenv
 html2text
 pandas
-pydantic
-python-dotenv>=0.19.0 
+pydantic==2.10.6
+python-dotenv==0.19.0
 retrieve
+python-multipart==0.0.5
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
 
-torch>=2.0.0
-transformers>=4.36.0
-accelerate>=0.25.0
-bitsandbytes>=0.41.0
-sentencepiece>=0.1.99
-protobuf>=3.20.0
-timescale_vector
-
-# for translated from Spanish
-langdetect
-deep-translator
-googletrans
-
-
+# transformers>=4.36.0
+# accelerate>=0.25.0
+# bitsandbytes>=0.41.0
+# sentencepiece>=0.1.99
+# protobuf>=3.20.0
