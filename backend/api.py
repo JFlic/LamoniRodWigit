@@ -117,6 +117,18 @@ class QueryRequest(BaseModel):
 async def root():
     return {"message": "Welcome to the API"}
 
+@app.options("/")
+async def options_root():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
 @app.options("/query/")
 async def options_query():
     return Response(
@@ -124,6 +136,30 @@ async def options_query():
         headers={
             "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
             "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
+@app.options("/query/token")
+async def options_token():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
+@app.options("/query/query/upload")
+async def options_upload():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
             "Access-Control-Max-Age": "3600",
         }

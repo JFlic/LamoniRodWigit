@@ -149,12 +149,13 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch(`${BACKEND_URL}`, {
+      const res = await fetch(`${BACKEND_URL}/query/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: query }),
+        credentials: 'include',
       });
 
       if (!res.ok) {
