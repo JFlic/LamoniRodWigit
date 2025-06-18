@@ -1,5 +1,5 @@
 # Small Town RAG AI model
-This is a small town RAG AI solution for the Town of Lamoni Iowa called Rod Dixon. Rod can tell you anything from facebook posts that are happening in the Town to historical data from over 100 years ago
+This repo holds a RAG AI solution for the Town of Lamoni Iowa called Rod Dixon. Rod can tell you anything from facebook posts that are happening in the Town to historical data from over 100 years ago
 
 # backend
 The backend contains the vector storage, webscrape, retrieval and api scripts as well as some prototype pipelines that I experimented with.
