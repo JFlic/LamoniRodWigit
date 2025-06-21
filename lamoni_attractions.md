@@ -1,1 +1,0 @@
-Error fetching the URL: 403 Client Error: Forbidden for url: https://www.rodewayinnlamoni.com/attractions

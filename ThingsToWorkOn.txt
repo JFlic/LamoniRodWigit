@@ -1,0 +1,9 @@
+# For some reason the Docker container randomly stops. Here's the error.
+
+Docker Desktop - WSL distro terminated abruptly
+A WSL distro that Docker Desktop relies on has exited unexpectedly. This usually happens as a result of an external entity terminating WSL (e.g. running wsl --shutdown). Restart Docker Desktop. If the issue persists, collect diagnostics and submit an issue ⁠.
+
+running wsl-bootstrap: exit status 1
+Read our policy for uploaded diagnostic data⁠
+
+# We need to make a cloud instance of this. Probably thorugh AWS.

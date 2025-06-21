@@ -67,10 +67,12 @@ def process_documents(urlpath, category):
     """Process and ingest documents into PGvectorstore"""
     print("Starting document ingestion process...")
     
-    # Gather all PDF and Markdown files
+    # Gather all files
     pdf_files = glob.glob(os.path.join(urlpath, "*.pdf"))
     md_files = glob.glob(os.path.join(urlpath, "*.md"))
     docx_files = glob.glob(os.path.join(urlpath, "*.docx"))
+    cvs_files = glob.glob(os.path.join(urlpath, "*.cvs"))
+
 
     print(f"Processing {len(pdf_files)} PDFs, {len(md_files)} Markdown and {len(docx_files)} DOCX files")
 
@@ -80,6 +82,43 @@ def process_documents(urlpath, category):
     # Process Markdown files
     for file in md_files:
         print(f"Loading Markdown: {Path(file).name}")
+        loader = DoclingLoader(
+            file_path=[file],
+            export_type=EXPORT_TYPE,
+            chunker=chunker,
+        )
+        docs = loader.load()
+
+        for doc in docs:
+            # Extract only what we need from the original metadata
+            source_file = None
+            headings = None
+            timestamp = datetime.datetime.now().isoformat()
+            
+            if hasattr(doc, 'metadata') and doc.metadata:
+                if 'source' in doc.metadata:
+                    source_file = doc.metadata['source']
+                
+                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
+                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
+            
+                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                url = find_url(CSV_FILE,source_file)
+
+            # Replace the metadata with simplified version
+            doc.metadata = {
+                'source': source_file,
+                'heading': headings,
+                'scraped_at': timestamp,
+                "url": url,
+                "type": category
+            }
+
+        all_splits.extend(docs)
+    
+    # Process CSV files
+    for file in cvs_files:
+        print(f"Loading CSV: {Path(file).name}")
         loader = DoclingLoader(
             file_path=[file],
             export_type=EXPORT_TYPE,

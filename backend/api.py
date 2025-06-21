@@ -227,7 +227,7 @@ async def upload_files(
         for file in files:
             print(f"Processing file: {file.filename}")
             # Validate file extension
-            if not file.filename.lower().endswith(('.pdf', '.docx', '.md')):
+            if not file.filename.lower().endswith(('.pdf', '.docx', '.md', '.csv', '.txt')):
                 print(f"Skipping invalid file type: {file.filename}")
                 continue
                 
