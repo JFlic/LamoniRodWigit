@@ -16,9 +16,11 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 POSTGRESPASS = os.environ.get("POSTGRESPASS")
-SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-here")  # Change this in production
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
+ADMIN_PASS = os.environ.get("ADMIN_PASS")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -34,9 +36,9 @@ class UserInDB(User):
 
 # Replace this with a real database in production
 fake_users_db = {
-    "RodAdmin@example.com": {
-        "email": "RodAdmin@example.com",
-        "hashed_password": pwd_context.hash("ILoveRod"),
+    ADMIN_EMAIL: {
+        "email": ADMIN_EMAIL,
+        "hashed_password": pwd_context.hash(ADMIN_PASS),
         "disabled": False,
     }
 }
@@ -95,11 +97,11 @@ app.add_middleware(
         "https://questionroddixon.com",
         "http://localhost:3000",
         "https://lamoni-rod-wigit.vercel.app",
-        "https://*.vercel.app",  # Allow all Vercel preview deployments
+        "https://*.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*", "Authorization"],  # Explicitly allow Authorization header
+    allow_headers=["*", "Authorization"],
     expose_headers=["*"],
 )
 
