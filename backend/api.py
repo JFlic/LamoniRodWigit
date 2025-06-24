@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -22,7 +22,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
 ADMIN_PASS = os.environ.get("ADMIN_PASS")
 
-# Password hashing
+# Password hashing for admin login
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -87,9 +87,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
     return user
 
+# Helper function to clean up temp files
+def cleanup_temp_files(file_paths: List[str]):
+    """Clean up temporary files"""
+    for file_path in file_paths:
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
 app = FastAPI()
 
-# Add CORS middleware with expanded configuration
+# Add CORS middleware - this handles OPTIONS requests automatically
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -119,53 +128,7 @@ class QueryRequest(BaseModel):
 async def root():
     return {"message": "Welcome to the API"}
 
-@app.options("/")
-async def options_root():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
-
-@app.options("/query/")
-async def options_query():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
-            "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
-
-@app.options("/query/token")
-async def options_token():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
-
-@app.options("/query/query/upload")
-async def options_upload():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "https://lamoni-rod-wigit.vercel.app",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
+# Removed redundant OPTIONS handlers - CORS middleware handles these automatically
 
 @app.post("/query/")
 async def my_query_endpoint(query: QueryRequest):
@@ -223,9 +186,10 @@ async def upload_files(
     print(f"Category: {category}")
     print(f"Number of files: {len(files)}")
     
+    saved_files = []
+    
     try:
         # Save uploaded files to temp directory
-        saved_files = []
         for file in files:
             print(f"Processing file: {file.filename}")
             # Validate file extension
@@ -274,13 +238,6 @@ async def upload_files(
         db_end_time = time.time()
         print(f"TIMING: Database insertion time: {db_end_time - db_start_time:.4f} seconds")
 
-        # Clean up temp files
-        for file_path in saved_files:
-            try:
-                os.remove(file_path)
-            except:
-                pass
-
         upload_end_time = time.time()
         total_time = upload_end_time - upload_start_time
         print(f"TIMING: Total upload processing time: {total_time:.4f} seconds")
@@ -296,13 +253,11 @@ async def upload_files(
 
     except Exception as e:
         print(f"Error during file upload: {str(e)}")
-        # Clean up temp files in case of error
-        for file_path in saved_files:
-            try:
-                os.remove(file_path)
-            except:
-                pass
         return {"error": str(e)}
+    
+    finally:
+        # Clean up temp files (consolidated cleanup)
+        cleanup_temp_files(saved_files)
 
 # Add this code to run the server when the file is executed directly
 if __name__ == "__main__":

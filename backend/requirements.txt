@@ -21,6 +21,7 @@ python-multipart==0.0.5
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
+langdetect
 # transformers>=4.36.0
 # accelerate>=0.25.0
 # bitsandbytes>=0.41.0

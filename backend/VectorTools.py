@@ -52,184 +52,94 @@ def find_url(csv_file, document_name):
     Returns:
     str: The corresponding URL if found, otherwise None.
     """
-
+    # Clean up the document name path
     document_name = document_name.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\","")
 
     try:
-      df = pd.read_csv(csv_file)
-      result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
-      return result.values[0] if not result.empty else None
+        df = pd.read_csv(csv_file)
+        result = df.loc[df.iloc[:, 1] == document_name, df.columns[0]]
+        if result:
+            print(f"Found internet url in LamoniUrls.csv to {result}")
+        else:
+            print("No url found in LamoniUrls.csv")
+        return result.values[0] if not result.empty else None
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+def process_file_type(files: List[str], file_type: str, category: str) -> List:
+    """
+    Process a specific file type and return document chunks.
+    This eliminates code duplication across different file types.
+    """
+    all_splits = []
+    
+    for file in files:
+        print(f"Loading {file_type}: {Path(file).name}")
+        loader = DoclingLoader(
+            file_path=[file],
+            export_type=EXPORT_TYPE,
+            chunker=chunker,
+        )
+        docs = loader.load()
+
+        for doc in docs:
+            # Extract and clean metadata
+            source_file = None
+            headings = None
+            timestamp = datetime.datetime.now().isoformat()
+            
+            if hasattr(doc, 'metadata') and doc.metadata:
+                if 'source' in doc.metadata:
+                    source_file = doc.metadata['source']
+                
+                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
+                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
+            
+                # Clean up the source file path
+                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
+                url = find_url(CSV_FILE, source_file)
+
+            # Replace the metadata with simplified version
+            doc.metadata = {
+                'source': source_file,
+                'heading': headings,
+                'scraped_at': timestamp,
+                "url": url,
+                "type": category
+            }
+
+        all_splits.extend(docs)
+    
+    return all_splits
 
 def process_documents(urlpath, category):
     """Process and ingest documents into PGvectorstore"""
     print("Starting document ingestion process...")
     
-    # Gather all files
-    pdf_files = glob.glob(os.path.join(urlpath, "*.pdf"))
-    md_files = glob.glob(os.path.join(urlpath, "*.md"))
-    docx_files = glob.glob(os.path.join(urlpath, "*.docx"))
-    cvs_files = glob.glob(os.path.join(urlpath, "*.cvs"))
+    # Define file types and their extensions
+    file_types = {
+        'PDF': glob.glob(os.path.join(urlpath, "*.pdf")),
+        'Markdown': glob.glob(os.path.join(urlpath, "*.md")),
+        'DOCX': glob.glob(os.path.join(urlpath, "*.docx")),
+        'CSV': glob.glob(os.path.join(urlpath, "*.csv")),
+        'text': glob.glob(os.path.join(urlpath, "*.txt")),
+        'HTML': glob.glob(os.path.join(urlpath, "*.html")),
+    }
 
+    print(f"Processing {len(file_types['PDF'])} PDFs, {len(file_types['Markdown'])} Markdown, "
+          f"{len(file_types['DOCX'])} DOCX, {len(file_types['CSV'])} CSV files, "
+          f"{len(file_types['text'])} Text, and {len(file_types['HTML'])} HTML"
+          )
 
-    print(f"Processing {len(pdf_files)} PDFs, {len(md_files)} Markdown and {len(docx_files)} DOCX files")
-
-    # Load and chunk documents
+    # Process all file types using the unified function
     all_splits = []
-
-    # Process Markdown files
-    for file in md_files:
-        print(f"Loading Markdown: {Path(file).name}")
-        loader = DoclingLoader(
-            file_path=[file],
-            export_type=EXPORT_TYPE,
-            chunker=chunker,
-        )
-        docs = loader.load()
-
-        for doc in docs:
-            # Extract only what we need from the original metadata
-            source_file = None
-            headings = None
-            timestamp = datetime.datetime.now().isoformat()
-            
-            if hasattr(doc, 'metadata') and doc.metadata:
-                if 'source' in doc.metadata:
-                    source_file = doc.metadata['source']
-                
-                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
-                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
-            
-                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
-                url = find_url(CSV_FILE,source_file)
-
-            # Replace the metadata with simplified version
-            doc.metadata = {
-                'source': source_file,
-                'heading': headings,
-                'scraped_at': timestamp,
-                "url": url,
-                "type": category
-            }
-
-        all_splits.extend(docs)
-    
-    # Process CSV files
-    for file in cvs_files:
-        print(f"Loading CSV: {Path(file).name}")
-        loader = DoclingLoader(
-            file_path=[file],
-            export_type=EXPORT_TYPE,
-            chunker=chunker,
-        )
-        docs = loader.load()
-
-        for doc in docs:
-            # Extract only what we need from the original metadata
-            source_file = None
-            headings = None
-            timestamp = datetime.datetime.now().isoformat()
-            
-            if hasattr(doc, 'metadata') and doc.metadata:
-                if 'source' in doc.metadata:
-                    source_file = doc.metadata['source']
-                
-                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
-                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
-            
-                source_file = source_file.replace("c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
-                url = find_url(CSV_FILE,source_file)
-
-            # Replace the metadata with simplified version
-            doc.metadata = {
-                'source': source_file,
-                'heading': headings,
-                'scraped_at': timestamp,
-                "url": url,
-                "type": category
-            }
-
-        all_splits.extend(docs)
-
-    # Process DOCX files
-    for file in docx_files:
-        print(f"Loading DOCX: {Path(file).name}")
-        loader = DoclingLoader(
-            file_path=[file],
-            export_type=EXPORT_TYPE,
-            chunker=chunker,
-        )
-        docs = loader.load()
-
-        for doc in docs:
-            # Extract only what we need from the original metadata
-            source_file = None
-            headings = None
-            timestamp = datetime.datetime.now().isoformat()
-            
-            if hasattr(doc, 'metadata') and doc.metadata:
-                if 'source' in doc.metadata:
-                    source_file = doc.metadata['source']
-                
-                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
-                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
-            
-                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
-                url = find_url(CSV_FILE,source_file)
-
-                
-            # Replace the metadata with simplified version
-            doc.metadata = {
-                'source': source_file,
-                'heading': headings,
-                'scraped_at': timestamp,
-                "url": url,
-                "type": category
-            }
-
-        all_splits.extend(docs)
-
-    # Process PDF files
-    for file in pdf_files:
-        print(f"Loading PDF: {Path(file).name}")
-        loader = DoclingLoader(
-            file_path=[file],
-            export_type=EXPORT_TYPE,
-            chunker=chunker,
-        )
-        docs = loader.load()
-
-        for doc in docs:
-            # Extract only what we need from the original metadata
-            source_file = None
-            headings = None
-            timestamp = datetime.datetime.now().isoformat()
-            
-            if hasattr(doc, 'metadata') and doc.metadata:
-                if 'source' in doc.metadata:
-                    source_file = doc.metadata['source']
-                
-                if 'dl_meta' in doc.metadata and 'headings' in doc.metadata['dl_meta']:
-                    headings = doc.metadata['dl_meta']['headings'][0] if doc.metadata['dl_meta']['headings'] else None
-            
-                source_file = source_file.replace(f"c:\\Users\\RODDIXON\\Desktop\\LamoniRodWigit\\backend\\TempDocumentStore\\","")
-                url = find_url(CSV_FILE,source_file)
-
-            # Replace the metadata with simplified version
-            doc.metadata = {
-                'source': source_file,
-                'heading': headings,
-                'scraped_at': timestamp,
-                "url": url,
-                "type": category
-            }
- 
-        all_splits.extend(docs)
+    for file_type, files in file_types.items():
+        if files:  # Only process if files exist
+            splits = process_file_type(files, file_type, category)
+            all_splits.extend(splits)
     
     print(f"Total document chunks created: {len(all_splits)}")
-
     return all_splits
 
 def get_embedding(text: str) -> List[float]:
@@ -504,4 +414,3 @@ class VectorDB:
             self.conn.close()
         end_time = time.time()
         print(f"TIMING: Database connection close took {end_time - start_time:.4f} seconds")
-
