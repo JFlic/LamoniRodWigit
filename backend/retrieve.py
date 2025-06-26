@@ -1,3 +1,5 @@
+# This Retrieve.py can speak in spanish
+
 import time
 import os
 import datetime
