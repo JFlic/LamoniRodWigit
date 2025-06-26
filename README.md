@@ -4,7 +4,7 @@ This repo holds a RAG AI solution for the Town of Lamoni Iowa called Rod Dixon. 
 # backend
 The backend contains the vector storage, webscrape, retrieval and api scripts as well as some prototype pipelines that I experimented with.
 Currently the RAG model works with cosine similarity search and re-rank. The embedding model for the search functionality is BAAI/bge-m3. The LLM model that was used was qwen3:1.7b. Using bigger models with more parameters did give better results but qwen3:1.7b seemed to be the best mix of speed and results for my hardware setup.
-
+Hey Test
 
 # frontend
 There are two "frontends" for Rod one which is a widget that sits on the LeadonLamoni.com website and another that is located in the frontend folder that's a dedicated webpage designed to look like AI chat websites. 
