@@ -414,3 +414,17 @@ class VectorDB:
             self.conn.close()
         end_time = time.time()
         print(f"TIMING: Database connection close took {end_time - start_time:.4f} seconds")
+
+    def is_connected(self):
+        """Check if the database connection is still valid."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                return True
+        except:
+            return False
+
+    def reconnect(self):
+        """Reconnect to the database if connection is lost."""
+        if not self.is_connected():
+            self.conn = psycopg2.connect(**self.conn_params)

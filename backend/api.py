@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +29,93 @@ ADMIN_PASS = os.environ.get("ADMIN_PASS")
 # Password hashing for admin login
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Concurrent user tracking
+class UserTracker:
+    def __init__(self):
+        self.active_queries = {}  # {user_id: {start_time, query}}
+        self.lock = threading.Lock()
+        self.query_counter = 0
+    
+    def start_query(self, user_id: str, query: str):
+        with self.lock:
+            self.query_counter += 1
+            self.active_queries[user_id] = {
+                'start_time': time.time(),
+                'query': query,
+                'query_number': self.query_counter
+            }
+            
+            active_count = len(self.active_queries)
+            
+            print(f"\n{'='*50}")
+            print(f"🔍 NEW QUERY STARTED")
+            print(f"User ID: {user_id}")
+            print(f"Query #{self.query_counter}: {query}")
+            print(f"Active queries: {active_count}")
+            
+            if active_count == 1:
+                print("✅ PROCESSING: Single user - no waiting")
+            elif active_count == 2:
+                print("⚠️  CONCURRENT: Two users asking questions!")
+                print("🔄 PROCESSING: Both queries simultaneously")
+                other_users = [uid for uid in self.active_queries.keys() if uid != user_id]
+                for other_user in other_users:
+                    other_query = self.active_queries[other_user]
+                    elapsed = time.time() - other_query['start_time']
+                    print(f"   👥 Other user ({other_user[:8]}...): Query #{other_query['query_number']} running for {elapsed:.2f}s")
+            else:
+                print(f"🚨 HIGH LOAD: {active_count} users querying simultaneously!")
+                print("⚡ PROCESSING: All queries in parallel")
+            
+            print(f"{'='*50}")
+    
+    def end_query(self, user_id: str):
+        with self.lock:
+            if user_id in self.active_queries:
+                query_info = self.active_queries[user_id]
+                duration = time.time() - query_info['start_time']
+                del self.active_queries[user_id]
+                
+                remaining_count = len(self.active_queries)
+                
+                print(f"\n{'='*50}")
+                print(f"✅ QUERY COMPLETED")
+                print(f"User ID: {user_id}")
+                print(f"Query #{query_info['query_number']} finished in {duration:.2f}s")
+                print(f"Remaining active queries: {remaining_count}")
+                
+                if remaining_count == 0:
+                    print("🎯 ALL CLEAR: No users waiting")
+                elif remaining_count == 1:
+                    remaining_user = list(self.active_queries.keys())[0]
+                    remaining_query = self.active_queries[remaining_user]
+                    elapsed = time.time() - remaining_query['start_time']
+                    print(f"🔄 CONTINUING: One user still processing (Query #{remaining_query['query_number']}, {elapsed:.2f}s elapsed)")
+                else:
+                    print(f"🔄 CONTINUING: {remaining_count} users still processing")
+                    for remaining_user, remaining_query in self.active_queries.items():
+                        elapsed = time.time() - remaining_query['start_time']
+                        print(f"   👥 User ({remaining_user[:8]}...): Query #{remaining_query['query_number']}, {elapsed:.2f}s elapsed")
+                
+                print(f"{'='*50}")
+    
+    def get_status(self):
+        with self.lock:
+            return {
+                'active_count': len(self.active_queries),
+                'active_queries': {
+                    user_id: {
+                        'query_number': info['query_number'],
+                        'elapsed_time': time.time() - info['start_time'],
+                        'query': info['query'][:50] + '...' if len(info['query']) > 50 else info['query']
+                    }
+                    for user_id, info in self.active_queries.items()
+                }
+            }
+
+# Global user tracker instance
+user_tracker = UserTracker()
 
 # User model
 class User(BaseModel):
@@ -124,41 +215,67 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 class QueryRequest(BaseModel):
     query: str
 
+# Create a thread pool executor for handling concurrent requests
+thread_pool = ThreadPoolExecutor(max_workers=10)
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the API"}
 
-# Removed redundant OPTIONS handlers - CORS middleware handles these automatically
+@app.get("/status")
+async def get_status():
+    """Get current status of active queries"""
+    status = user_tracker.get_status()
+    return status
 
 @app.post("/query/")
 async def my_query_endpoint(query: QueryRequest):
+    # Generate unique user ID for this request
+    user_id = str(uuid.uuid4())
+    
     total_start_time = time.time()
-    print(f"\n=== INCOMING QUERY ===")
-    print(f"Query: {query.query}")
     
-    # Process the query
-    process_start_time = time.time()
-    result = await process_query(query.query)
-    process_end_time = time.time()
-    process_time = process_end_time - process_start_time
-    print(f"TIMING: Query processing total time: {process_time:.4f} seconds")
+    # Start tracking this query
+    user_tracker.start_query(user_id, query.query)
     
-    # Calculate response preparation time
-    response_prep_start = time.time()
-    # Add timing data to result
-    result["api_timing"] = {
-        "process_time": f"{process_time:.4f} seconds"
-    }
-    response_prep_end = time.time()
-    print(f"TIMING: Response preparation time: {response_prep_end - response_prep_start:.4f} seconds")
-    
-    # Calculate total API time
-    total_end_time = time.time()
-    total_time = total_end_time - total_start_time
-    print(f"TIMING: Total API endpoint time: {total_time:.4f} seconds")
-    result["api_timing"]["total_time"] = f"{total_time:.4f} seconds"
-    
-    return result
+    try:
+        # Process the query asynchronously
+        process_start_time = time.time()
+        
+        # Run the query processing in a thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(thread_pool, lambda: asyncio.run(process_query(query.query)))
+        
+        process_end_time = time.time()
+        process_time = process_end_time - process_start_time
+        print(f"TIMING: Query processing total time: {process_time:.4f} seconds")
+        
+        # Calculate response preparation time
+        response_prep_start = time.time()
+        # Add timing data to result
+        result["api_timing"] = {
+            "process_time": f"{process_time:.4f} seconds"
+        }
+        response_prep_end = time.time()
+        print(f"TIMING: Response preparation time: {response_prep_end - response_prep_start:.4f} seconds")
+        
+        # Calculate total API time
+        total_end_time = time.time()
+        total_time = total_end_time - total_start_time
+        print(f"TIMING: Total API endpoint time: {total_time:.4f} seconds")
+        result["api_timing"]["total_time"] = f"{total_time:.4f} seconds"
+        
+        # Add concurrency info to response
+        result["concurrency_info"] = {
+            "user_id": user_id,
+            "was_concurrent": user_tracker.get_status()['active_count'] > 1
+        }
+        
+        return result
+        
+    finally:
+        # End tracking this query
+        user_tracker.end_query(user_id)
 
 @app.post("/query/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):

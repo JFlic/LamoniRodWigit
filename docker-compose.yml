@@ -14,18 +14,31 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=8  # Allow 8 concurrent requests
+    command: >
+      sh -c "
+        echo 'Setting up Ollama for concurrent requests...' &&
+        ollama serve --host 0.0.0.0:11434 &
+        sleep 5 &&
+        ollama pull qwen3:4b &&
+        wait
+      "
 
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile.api
     ports:
-      - "8000:8000"
+      - "8000:8000" # when you boot up the API it says its Uvicorn running on http://0.0.0.0:8001
     depends_on:
       - ollama
     environment:
       - OLLAMA_HOST=http://ollama:11434
-      - MILVUS_URI=http://localhost:19530
+    deploy:
+      replicas: 3  # Run multiple API instances
 
 volumes:
   ollama_data: 
