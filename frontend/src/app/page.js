@@ -101,6 +101,7 @@ export default function Home() {
   const t = translations[language];
   const commonQuestions = commonQuestionsTranslations[language];
 
+  
   // Backend URL configuration
   // I need to figure out a way to not have https://questionroddixon.com hard coded to the frontend for vulnerabilities
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL_PROD || 'https://questionroddixon.com';
